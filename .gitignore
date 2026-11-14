@@ -22,3 +22,7 @@ npm-debug.log*
 # OS and editor files
 .DS_Store
 .vscode/
+
+
+# Firebase account secrets
+/backend/serviceAccountKey.json
