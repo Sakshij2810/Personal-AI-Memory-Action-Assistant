@@ -1,5 +1,7 @@
 import express from "express";
 import {
+  getImageFile,
+  getUserImages,
   uploadMultipleImages,
   uploadSingleImage,
 } from "../controllers/media.controller.js";
@@ -20,5 +22,8 @@ mediaRouter.post(
   upload.array("images", 20),
   uploadMultipleImages,
 );
+
+mediaRouter.get("/", isAuth, getUserImages);
+mediaRouter.get("/:id/file", isAuth, getImageFile);
 
 export default mediaRouter;
