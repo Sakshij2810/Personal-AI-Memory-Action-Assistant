@@ -4,6 +4,9 @@ export const REACT_APP_NAV_ROUTES = {
   // Media
   upload_images: "/upload-images",
 
+  // User storage
+  image_gallery: "/image_gallery",
+
   // Memory Agents
   people_recognition: "/people-recognition",
   event_organizer: "/event-organizer",

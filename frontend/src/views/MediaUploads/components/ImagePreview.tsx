@@ -1,4 +1,4 @@
-import type { SelectedImage } from "./types";
+import type { SelectedImage } from "../types";
 
 interface ImagePreviewProps {
   selectedImages: SelectedImage[];

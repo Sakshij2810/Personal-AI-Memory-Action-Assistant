@@ -8,6 +8,7 @@ import { getCurrentUser } from "./apis/user.api";
 import Home from "./views/Home/Home";
 import Dashboard from "./views/Dashboard/Dashboard";
 import UploadImages from "./views/MediaUploads/UploadImages";
+import ImageGallery from "./views/Storage/ImageGallery";
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -72,7 +73,23 @@ function App() {
         <Route
           path="/upload-images"
           element={
-            user ? <UploadImages user={user} /> : <Navigate to="/" replace />
+            user ? (
+              <UploadImages user={user} setUser={setUser} />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+
+        {/* ------------------- Storage ------------------- */}
+        <Route
+          path="/image_gallery"
+          element={
+            user ? (
+              <ImageGallery user={user} setUser={setUser} />
+            ) : (
+              <Navigate to="/" replace />
+            )
           }
         />
       </Routes>

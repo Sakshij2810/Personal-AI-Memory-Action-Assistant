@@ -1,8 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 
 import type { User } from "../../types/user";
-import ImagePreview from "./ImagePreview";
-import UploadImageForm from "./UploadImageForm";
+import ImagePreview from "./components/ImagePreview";
+import UploadImageForm from "./components/UploadImageForm";
+import Sidebar from "../Dashboard/components/Sidebar";
 
 export interface SelectedImage {
   id: string;
@@ -12,12 +19,11 @@ export interface SelectedImage {
 
 interface UploadImagesProps {
   user: User;
+  setUser: Dispatch<SetStateAction<User | null>>;
 }
 
-const UploadImages = ({ user }: UploadImagesProps) => {
+const UploadImages = ({ user, setUser }: UploadImagesProps) => {
   const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
-
-  // Track all object URLs so we can release them on unmount.
   const objectUrls = useRef(new Set<string>());
 
   useEffect(() => {
@@ -40,19 +46,19 @@ const UploadImages = ({ user }: UploadImagesProps) => {
       };
     });
 
-    setSelectedImages((previousImages) => [...previousImages, ...newImages]);
+    setSelectedImages((previous) => [...previous, ...newImages]);
   };
 
   const handleRemoveImage = (id: string) => {
-    const imageToRemove = selectedImages.find((image) => image.id === id);
+    const image = selectedImages.find((item) => item.id === id);
 
-    if (imageToRemove) {
-      URL.revokeObjectURL(imageToRemove.previewUrl);
-      objectUrls.current.delete(imageToRemove.previewUrl);
+    if (image) {
+      URL.revokeObjectURL(image.previewUrl);
+      objectUrls.current.delete(image.previewUrl);
     }
 
-    setSelectedImages((previousImages) =>
-      previousImages.filter((image) => image.id !== id),
+    setSelectedImages((previous) =>
+      previous.filter((image) => image.id !== id),
     );
   };
 
@@ -66,41 +72,31 @@ const UploadImages = ({ user }: UploadImagesProps) => {
       objectUrls.current.delete(image.previewUrl);
     });
 
-    setSelectedImages((previousImages) =>
-      previousImages.filter((image) => !uploadedIds.includes(image.id)),
+    setSelectedImages((previous) =>
+      previous.filter((image) => !uploadedIds.includes(image.id)),
     );
   };
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6 text-[#0A0A0A]">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold">
-            Welcome, {user.display_name ?? "User"}
-          </h1>
+    <div className="flex min-h-screen bg-gray-50 font-sans text-[#0A0A0A]">
+      <Sidebar user={user} setUser={setUser} />
 
-          <p className="mt-1 text-sm text-gray-500">
-            Start organizing your personal memories.
-          </p>
+      <main className="min-w-0 flex-1 p-5 md:p-8">
+        <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-7">
+          {/* Upload Section */}
+          <UploadImageForm
+            selectedImages={selectedImages}
+            onFilesSelected={handleFilesSelected}
+            onUploadSuccess={handleUploadSuccess}
+          />
+
+          {/* Preview Section */}
+          <ImagePreview
+            selectedImages={selectedImages}
+            onRemoveImage={handleRemoveImage}
+          />
         </div>
-
-        <div className="flex flex-col items-start gap-6 lg:flex-row">
-          <div className="w-full flex-1">
-            <UploadImageForm
-              selectedImages={selectedImages}
-              onFilesSelected={handleFilesSelected}
-              onRemoveImage={handleRemoveImage}
-              onUploadSuccess={handleUploadSuccess}
-            />
-          </div>
-
-          <div className="w-full flex-1">
-            <ImagePreview
-              selectedImages={selectedImages}
-              onRemoveImage={handleRemoveImage}
-            />
-          </div>
-        </div>
-      </div>
+      </main>
     </div>
   );
 };

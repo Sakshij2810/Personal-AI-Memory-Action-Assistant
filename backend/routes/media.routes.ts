@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  deleteImage,
   getImageFile,
   getUserImages,
   uploadMultipleImages,
@@ -25,5 +26,6 @@ mediaRouter.post(
 
 mediaRouter.get("/", isAuth, getUserImages);
 mediaRouter.get("/:id/file", isAuth, getImageFile);
+mediaRouter.delete("/:id", isAuth, deleteImage);
 
 export default mediaRouter;

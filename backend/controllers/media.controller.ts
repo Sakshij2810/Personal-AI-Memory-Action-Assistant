@@ -223,3 +223,104 @@ export const getImageFile = async (req: Request, res: Response) => {
     });
   }
 };
+
+// Delete image from PostgreSQL and local storage
+export const deleteImage = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const imageId = req.params.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorised",
+      });
+    }
+
+    // 1. Find the image and verify that it belongs to this user.
+    const imageResult = await pool.query(
+      `
+      SELECT storage_key
+      FROM media_files
+      WHERE id = $1 AND user_id = $2
+      `,
+      [imageId, userId],
+    );
+
+    if (imageResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Image not found.",
+      });
+    }
+
+    const { storage_key } = imageResult.rows[0];
+
+    // 2. Build the absolute path of the image in local storage.
+    const storageDirectory = path.resolve(
+      process.cwd(),
+      "UploadMediaLocalStorage",
+    );
+
+    const imagePath = path.resolve(storageDirectory, storage_key);
+
+    // 3. Prevent path traversal.
+    if (!imagePath.startsWith(storageDirectory + path.sep)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid image path.",
+      });
+    }
+
+    // 4. Delete the database record, checking ownership again.
+    const deleteResult = await pool.query(
+      `
+      DELETE FROM media_files
+      WHERE id = $1 AND user_id = $2
+      RETURNING id
+      `,
+      [imageId, userId],
+    );
+
+    if (deleteResult.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Image not found.",
+      });
+    }
+
+    // 5. Delete the physical image file.
+    try {
+      await fs.unlink(imagePath);
+    } catch (fileError: unknown) {
+      // ENOENT means the file was already missing.
+      if (
+        fileError instanceof Error &&
+        "code" in fileError &&
+        fileError.code !== "ENOENT"
+      ) {
+        console.error("Physical image deletion failed:", fileError);
+
+        return res.status(200).json({
+          success: true,
+          fileDeleted: false,
+          message:
+            "Image metadata deleted, but the physical file could not be removed.",
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      fileDeleted: true,
+      message: "Image deleted successfully.",
+    });
+  } catch (error: unknown) {
+    console.error("Delete image error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete image.",
+    });
+  }
+};

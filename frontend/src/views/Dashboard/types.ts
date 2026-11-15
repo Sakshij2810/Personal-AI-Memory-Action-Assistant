@@ -61,3 +61,12 @@ export const NAV_ITEMS = [
     comingSoon: true,
   },
 ] as const;
+
+export const STORAGE_ITEMS = [
+  {
+    icon: FiImage,
+    label: "Image Gallery",
+    path: REACT_APP_NAV_ROUTES.image_gallery,
+    comingSoon: true,
+  },
+] as const;

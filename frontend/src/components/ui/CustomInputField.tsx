@@ -1,11 +1,12 @@
 import type { ChangeEvent, HTMLInputTypeAttribute } from "react";
 
 interface CustomInputFieldProps {
-  label: string;
+  label?: string;
   value: string;
   placeholder?: string;
   onChange: (value: string) => void;
   type?: HTMLInputTypeAttribute;
+  className?: string;
 }
 
 const CustomInputField = ({
@@ -14,23 +15,24 @@ const CustomInputField = ({
   placeholder,
   onChange,
   type = "text",
+  className = "",
 }: CustomInputFieldProps) => {
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     onChange(e.target.value);
   };
 
   return (
-    <div className="flex flex-col gap-1">
-      <label className="text-[10px] font-semibold text-black/70 uppercase tracking-wider">
-        {label}
-      </label>
+    <div className="flex w-full flex-col gap-1">
+      {label && (
+        <label className="text-sm font-medium text-gray-700">{label}</label>
+      )}
 
       <input
         type={type}
-        placeholder={placeholder}
         value={value}
         onChange={handleChange}
-        className="bg-white border-2 border-black/25 text-[#0A0A0A] text-xs rounded-lg px-2.5 py-2 outline-none focus:border-black/60 transition-colors placeholder-black/30 shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
+        placeholder={placeholder}
+        className={`w-full rounded-lg border-2 border-black/25 bg-white px-2.5 py-2 text-xs text-[#0A0A0A] shadow-[0_2px_8px_rgba(0,0,0,0.04)] outline-none transition-colors placeholder:text-gray-400 focus:border-black/60 ${className}`}
       />
     </div>
   );

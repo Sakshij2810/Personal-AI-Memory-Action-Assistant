@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { GiArtificialHive, GiTwoCoins } from "react-icons/gi";
 import { FiLogOut, FiPlus, FiSidebar } from "react-icons/fi";
@@ -7,27 +7,18 @@ import { REACT_APP_NAV_ROUTES } from "../../../Router/AppNavigation";
 import type { User } from "../../../types/user";
 import { useNavigate } from "react-router-dom";
 import { FaCirclePlus } from "react-icons/fa6";
-import { NAV_ITEMS } from "../types";
+import { NAV_ITEMS, STORAGE_ITEMS } from "../types";
+import { server_base_endpoints } from "../../../utils/server_base_endpoints";
+import api from "../../../utils/axios";
+import axios from "axios";
+import { toast } from "sonner";
 
 export interface SidebarProps {
   user: User;
-  sidebarOpen: boolean;
-  setSidebarOpen: Dispatch<SetStateAction<boolean>>;
-  mobileOpen: boolean;
-  setMobileOpen: Dispatch<SetStateAction<boolean>>;
-  onLogout: () => void;
-  onNewImageUpload: () => void;
+  setUser: Dispatch<SetStateAction<User | null>>;
 }
 
-const Sidebar = ({
-  user,
-  sidebarOpen,
-  setSidebarOpen,
-  mobileOpen,
-  setMobileOpen,
-  onLogout,
-  onNewImageUpload,
-}: SidebarProps) => {
+const Sidebar = ({ user, setUser }: SidebarProps) => {
   const navigate = useNavigate();
   const avatar = user?.display_name
     ? user.display_name
@@ -37,6 +28,26 @@ const Sidebar = ({
         .toUpperCase()
         .slice(0, 2)
     : "U";
+
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
+  const [mobileOpen, setMobileOpen] = useState<boolean>(false);
+
+  // handle Logout
+  const handleLogout = async () => {
+    try {
+      const res = await api.post(server_base_endpoints.auth.logout);
+      if (res?.data?.success) {
+        setUser(null);
+        navigate("/");
+      }
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        toast.error(error.response?.data?.message || "Error while logout.");
+      } else {
+        toast.error("Something went wrong.");
+      }
+    }
+  };
 
   const inner = (
     <div className="flex flex-col h-full">
@@ -85,12 +96,12 @@ const Sidebar = ({
         </div>
       </div>
 
-      {/*  section : create interview */}
+      {/*  section : upload images */}
       <div className="px-2.5 pt-3 pb-1.5 shrink-0">
         <motion.button
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
-          onClick={onNewImageUpload}
+          onClick={() => navigate(REACT_APP_NAV_ROUTES.upload_images)}
           className={`w-full flex items-center gap-2 bg-[#000000] text-white font-semibold rounded-lg py-2 transition-all shadow-[0_4px_14px_rgba(0,0,0,0.25)] cursor-pointer hover:bg-[#1a1a1a] ${
             sidebarOpen ? "px-2.5 " : "justify-center px-0"
           }`}
@@ -111,6 +122,50 @@ const Sidebar = ({
           </AnimatePresence>
         </motion.button>
       </div>
+
+      {/*  section : user storage */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.13 }}
+            className="px-3 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-widest text-black/30"
+          >
+            Storage
+          </motion.p>
+        )}
+      </AnimatePresence>
+
+      <nav className="flex flex-col gap-0.5 px-2.5">
+        {STORAGE_ITEMS.map((nav, i) => {
+          const Icon = nav.icon;
+
+          return (
+            <motion.button
+              key={i}
+              onClick={() => {
+                navigate(nav.path);
+                setMobileOpen(false);
+              }}
+              whileHover={{ x: sidebarOpen ? 3 : 0 }}
+              transition={{ duration: 0.13 }}
+              className={`flex items-center gap-2.5 rounded-lg py-2 transition-all text-xs font-medium text-black/45 hover:text-[#0A0A0A] hover:bg-black/5 cursor-pointer ${
+                sidebarOpen ? "px-2.5 " : "justify-center px-0"
+              }`}
+            >
+              <span className="shrink-0">
+                <Icon size={15} />
+              </span>
+
+              {sidebarOpen && (
+                <span className="whitespace-nowrap">{nav.label}</span>
+              )}
+            </motion.button>
+          );
+        })}
+      </nav>
 
       {/*  section : nav items */}
       <AnimatePresence>
@@ -155,6 +210,7 @@ const Sidebar = ({
           );
         })}
       </nav>
+
       {/* section : bottom coins and logout */}
       <div className="border-t border-black/8 p-2.5 shrink-0">
         {/* coins */}
@@ -216,7 +272,7 @@ const Sidebar = ({
           <AnimatePresence>
             {sidebarOpen && (
               <motion.button
-                onClick={onLogout}
+                onClick={handleLogout}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -237,7 +293,7 @@ const Sidebar = ({
       <motion.aside
         animate={{ width: sidebarOpen ? 260 : 72 }}
         transition={{ duration: 0.25, ease: "easeInOut" }}
-        className="hidden md:flex fixed top-0 left-0 h-screen bg-white border-r border-black/8 flex-col z-40 overflow-hidden"
+        className="hidden md:flex sticky top-0 h-screen shrink-0 bg-white border-r border-black/8 flex-col overflow-hidden"
       >
         {inner}
       </motion.aside>
