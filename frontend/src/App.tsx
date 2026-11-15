@@ -1,13 +1,50 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import Home from "./pages/Home";
-import Dashboard from "./pages/Dashboard";
+import { Toaster } from "sonner";
+
 import type { User } from "./types/user";
+import { getCurrentUser } from "./apis/user.api";
+
+import Home from "./views/Home/Home";
+import Dashboard from "./views/Dashboard/Dashboard";
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  console.log("user.....", user);
+
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const data = await getCurrentUser();
+        setUser(data?.user);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getUser();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="fixed top-0 left-0 w-full z-[9999]">
+        <div className="h-1 bg-black animate-pulse w-full" />
+      </div>
+    );
+  }
+
   return (
     <>
+      <Toaster
+        position="top-right"
+        richColors
+        closeButton
+        duration={3000}
+        theme="dark"
+      />
+
       <Routes>
         {/* ------------------- Home ------------------- */}
         <Route

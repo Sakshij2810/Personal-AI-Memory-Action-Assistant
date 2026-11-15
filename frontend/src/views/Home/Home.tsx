@@ -3,11 +3,11 @@ import { useState, type Dispatch, type SetStateAction } from "react";
 import { GiArtificialHive } from "react-icons/gi";
 import { FaArrowRight } from "react-icons/fa6";
 
-import dashboard from "../assets/image.png";
-import LoginModel from "../components/LoginModel";
+import dashboard from "../../assets/image.png";
+import LoginModel from "./components/LoginModel";
 
 import { FiImage, FiSearch, FiCalendar, FiShield } from "react-icons/fi";
-import type { User } from "../types/user";
+import type { User } from "../../types/user";
 
 interface HomeProps {
   setUser: Dispatch<SetStateAction<User | null>>;

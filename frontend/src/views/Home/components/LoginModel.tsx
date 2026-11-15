@@ -1,13 +1,15 @@
 import { FiX } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 import { motion } from "motion/react";
-import type { Dispatch, SetStateAction } from "react";
 import { signInWithPopup } from "firebase/auth";
-import { auth, provider } from "../utils/firebase";
-import api from "../utils/axios";
-import { server_base_endpoints } from "../utils/server_base_endpoints";
 import axios from "axios";
-import type { User } from "../types/user";
+import { toast } from "sonner";
+import type { Dispatch, SetStateAction } from "react";
+
+import { auth, provider } from "../../../utils/firebase";
+import api from "../../../utils/axios";
+import { server_base_endpoints } from "../../../utils/server_base_endpoints";
+import type { User } from "../../../types/user";
 
 interface LoginModelProps {
   onClose: () => void;
@@ -26,9 +28,9 @@ const LoginModel = ({ onClose, setUser }: LoginModelProps) => {
       onClose();
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
-        alert(error.response?.data?.message || "Something went wrong.");
+        toast.error(error.response?.data?.message || "Error while login.");
       } else {
-        alert("Something went wrong.");
+        toast.error("Something went wrong.");
       }
     }
   };

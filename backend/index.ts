@@ -6,6 +6,8 @@ import cookieParser from "cookie-parser";
 import pool from "./config/db.js";
 import authRouter from "./routes/auth.routes.js";
 import morgan from "morgan";
+import mediaRouter from "./routes/media.routes.js";
+import { isAuth } from "./middleware/isAuth.js";
 
 const app = express();
 
@@ -28,6 +30,7 @@ app.get("/", (req, res) => {
 
 // all routes
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/media", isAuth, mediaRouter);
 
 async function startServer() {
   if (!process.env.DATABASE_URL) {

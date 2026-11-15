@@ -8,18 +8,20 @@ export const isAuth = async (
 ) => {
   try {
     const sessionId = req.cookies?.session;
-
+    console.log("sessionId....", sessionId);
     if (!sessionId) {
       return res.status(401).json({ message: "Unauthorised" });
     }
 
     const session = await redis.get(`session:${sessionId}`);
+    console.log("session....", session);
 
     if (!session) {
       return res.status(401).json({ message: "session expired" });
     }
 
     req.user = JSON.parse(session);
+    console.log(" req.user....", req.user);
     next();
   } catch (error: unknown) {
     console.error("Authentication middleware error:", error);

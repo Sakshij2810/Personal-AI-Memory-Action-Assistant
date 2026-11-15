@@ -6,6 +6,7 @@ import { app } from "../config/firebase.js";
 import pool from "../config/db.js";
 import redis from "../shared/redis/redis.js";
 
+// login
 export const GoogleAuth = async (req: Request, res: Response) => {
   try {
     const { token } = req.body;
@@ -42,9 +43,11 @@ export const GoogleAuth = async (req: Request, res: Response) => {
     await redis.set(
       `session:${sessionId}`,
       JSON.stringify({
-        userId: user.id,
+        id: user.id,
         email: user.email,
-        name: user.display_name,
+        display_name: user.display_name,
+        firebase_uid: user.firebase_uid,
+        created_at: user.created_at,
       }),
       "EX",
       7 * 24 * 60 * 60,
@@ -74,6 +77,7 @@ export const GoogleAuth = async (req: Request, res: Response) => {
   }
 };
 
+// logout
 export const logOut = async (req: Request, res: Response) => {
   try {
     const sessionId = req.cookies?.session;
@@ -103,5 +107,17 @@ export const logOut = async (req: Request, res: Response) => {
       success: false,
       message: "Logout failed",
     });
+  }
+};
+
+// get current user
+export const getCurrentUser = async (req: Request, res: Response) => {
+  try {
+    return res.status(200).json({ success: true, user: req.user });
+  } catch (error) {
+    console.log("get current user error: ", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal Server Error" });
   }
 };
