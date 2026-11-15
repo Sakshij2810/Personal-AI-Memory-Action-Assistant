@@ -59,11 +59,11 @@ const LoginModel = ({ onClose, setUser }: LoginModelProps) => {
           <h2 className="text-lg font-bold text-center mb-2 text-white">
             Sign In to{" "}
             <span className="font-extrabold text-lg tracking-tight text-white">
-              FresherAI
+              MemoraAI
             </span>
           </h2>
           <p className="text-white/45 text-center text-xs">
-            Continue your AI interview journey
+            Continue your AI memory agent journey
           </p>
 
           <div className="mt-7">
