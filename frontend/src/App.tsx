@@ -7,12 +7,11 @@ import { getCurrentUser } from "./apis/user.api";
 
 import Home from "./views/Home/Home";
 import Dashboard from "./views/Dashboard/Dashboard";
+import UploadImages from "./views/MediaUploads/UploadImages";
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-
-  console.log("user.....", user);
 
   useEffect(() => {
     const getUser = async () => {
@@ -66,6 +65,14 @@ function App() {
             ) : (
               <Navigate to="/" replace />
             )
+          }
+        />
+
+        {/* ------------------- Media Uploads ------------------- */}
+        <Route
+          path="/upload-images"
+          element={
+            user ? <UploadImages user={user} /> : <Navigate to="/" replace />
           }
         />
       </Routes>

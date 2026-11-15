@@ -1,9 +1,11 @@
 declare global {
   namespace Express {
     interface UserSession {
-      userId: string;
+      id: string;
       email: string | null;
-      name: string | null;
+      display_name: string | null;
+      firebase_uid: string;
+      created_at: string;
     }
 
     interface Request {

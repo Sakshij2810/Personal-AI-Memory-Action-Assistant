@@ -1,8 +1,24 @@
 import express from "express";
-import { uploadImage } from "../controllers/media.controller.js";
+import {
+  uploadMultipleImages,
+  uploadSingleImage,
+} from "../controllers/media.controller.js";
+import { upload } from "../middleware/multer.js";
+import { isAuth } from "../middleware/isAuth.js";
 
 const mediaRouter = express.Router();
 
-mediaRouter.get("/upload", uploadImage);
+mediaRouter.post(
+  "/upload/single",
+  isAuth,
+  upload.single("image"),
+  uploadSingleImage,
+);
+mediaRouter.post(
+  "/upload/multiple",
+  isAuth,
+  upload.array("images", 20),
+  uploadMultipleImages,
+);
 
 export default mediaRouter;

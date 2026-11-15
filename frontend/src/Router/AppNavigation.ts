@@ -2,17 +2,17 @@ export const REACT_APP_NAV_ROUTES = {
   dashboard: "/dashboard",
 
   // Media
-  upload_images: "/upload_images",
+  upload_images: "/upload-images",
 
   // Memory Agents
-  peopleRecognition: "/people-recognition",
-  eventOrganizer: "/event-organizer",
-  memorySearch: "/memory-search",
-  documentIntelligence: "/document-intelligence",
-  albumCreator: "/album-creator",
-  memoryInsights: "/memory-insights",
-  taskAssistant: "/task-assistant",
-  voiceAssistant: "/voice-assistant",
+  people_recognition: "/people-recognition",
+  event_organizer: "/event-organizer",
+  memory_search: "/memory-search",
+  document_intelligence: "/document-intelligence",
+  album_creator: "/album-creator",
+  memory_insights: "/memory-insights",
+  task_assistant: "/task-assistant",
+  voice_assistant: "/voice-assistant",
 
   // Other
   billing: "/billing",

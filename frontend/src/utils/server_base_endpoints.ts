@@ -4,4 +4,8 @@ export const server_base_endpoints = {
     logout: "/api/v1/auth/logout",
     me: "/api/v1/auth/me",
   },
+  media: {
+    upload_single_img: "/api/v1/media/upload/single",
+    upload_multiple_img: "/api/v1/media/upload/multiple",
+  },
 };
