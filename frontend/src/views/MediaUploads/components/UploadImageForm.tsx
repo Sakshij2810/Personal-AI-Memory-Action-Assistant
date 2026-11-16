@@ -1,16 +1,21 @@
 import { useRef, useState, type DragEvent } from "react";
 import axios from "axios";
+
 import {
   FiUploadCloud,
   FiImage,
   FiFolder,
   FiCheckCircle,
 } from "react-icons/fi";
+
 import { toast } from "sonner";
 
 import api from "../../../utils/axios";
 import { server_base_endpoints } from "../../../utils/server_base_endpoints";
+
 import type { MultipleUploadImageResponse, SelectedImage } from "../types";
+import CustomFileInputField from "../../../components/ui/CustomFileInputField";
+import CustomButton from "../../../components/ui/Button";
 
 interface UploadImageFormProps {
   selectedImages: SelectedImage[];
@@ -27,7 +32,13 @@ const UploadImageForm = ({
   const [isDragging, setIsDragging] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /*
+  - We hide the default HTML file input because we want our own attractive button instead of the browser's default file input UI.
+  - But if the input is hidden, how will the user open the file picker?
+  - That's where fileInputRef comes in.
+   */
 
+  // Validate selected files before passing them to the parent.
   const addFiles = (files: File[]) => {
     const validFiles = files.filter((file) =>
       ["image/jpeg", "image/png", "image/webp"].includes(file.type),
@@ -42,30 +53,27 @@ const UploadImageForm = ({
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    addFiles(Array.from(e.target.files ?? []));
+  // Handle files selected through the file picker.
+  const handleFileChange = (files: File[]) => {
+    addFiles(files);
 
-    // Allow selecting the same file again.
-    e.target.value = "";
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+
+    /* Allow selecting the same file again.
+    The flow is:
+1. User selects photo1.jpg → onChange fires.
+2. User removes that image from the selected images.
+3. User selects photo1.jpg again.
+4. By default, the browser may not fire onChange because the input still has the same file selected.
+5. So we clear the input using fileInputRef.current.value = "".
+6. Now the user can select photo1.jpg again, and onChange fires.
+One important point: We clear the file input's selection, not the file stored in React state.
+    */
   };
 
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    addFiles(Array.from(e.dataTransfer.files));
-  };
-
+  // Upload selected images to the backend.
   const handleUpload = async () => {
     if (selectedImages.length === 0) {
       toast.warning("Please select at least one image.");
@@ -89,7 +97,10 @@ const UploadImageForm = ({
       if (res.data.success && res.data.images?.length) {
         toast.success(res.data.message);
 
+        // Current API behavior assumes all selected images were uploaded.
         onUploadSuccess(selectedImages.map((image) => image.id));
+      } else {
+        toast.error(res.data.message || "Image upload failed.");
       }
     } catch (error: unknown) {
       console.error("Image upload error:", error);
@@ -106,6 +117,23 @@ const UploadImageForm = ({
     }
   };
 
+  // Handle drag-and-drop events.
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault(); // Don't perform the default action associated with this event. I'll handle it myself.
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    addFiles(Array.from(e.dataTransfer.files));
+  };
   return (
     <section className="w-full rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:p-7">
       {/* Header */}
@@ -114,6 +142,7 @@ const UploadImageForm = ({
           <h2 className="text-xl font-bold text-gray-900">
             Upload your memories
           </h2>
+
           <p className="mt-1 text-sm text-gray-500">
             Add photos to your personal memory library.
           </p>
@@ -149,25 +178,28 @@ const UploadImageForm = ({
           or browse images from your device
         </p>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
+        {/* Reusable hidden file input */}
+        <CustomFileInputField
+          inputRef={fileInputRef}
           multiple
+          accept="image/jpeg,image/png,image/webp"
           disabled={isUploading}
           onChange={handleFileChange}
-          className="hidden"
+          inputClassName="hidden"
         />
 
-        <button
+        {/* Reusable button */}
+        <CustomButton
           type="button"
+          variant="primary"
+          size="lg"
           disabled={isUploading}
           onClick={() => fileInputRef.current?.click()}
-          className="mt-5 inline-flex items-center gap-2 rounded-lg bg-black px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-5"
         >
           <FiFolder size={16} />
           Browse Images
-        </button>
+        </CustomButton>
 
         <p className="mt-4 text-xs text-gray-400">
           Supported formats: JPG, JPEG, PNG and WEBP
@@ -178,6 +210,7 @@ const UploadImageForm = ({
       <div className="mt-5 flex flex-col gap-4 border-t border-gray-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <FiImage size={17} />
+
           <span>
             {selectedImages.length === 0
               ? "No images selected yet"
@@ -185,27 +218,23 @@ const UploadImageForm = ({
           </span>
         </div>
 
-        <button
+        {/* Reusable upload button with built-in loading state */}
+        <CustomButton
           type="button"
-          disabled={selectedImages.length === 0 || isUploading}
+          variant="primary"
+          size="lg"
+          disabled={selectedImages.length === 0}
+          isLoading={isUploading}
+          loadingText="Uploading..."
           onClick={handleUpload}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-black px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 sm:w-auto"
+          className="w-full sm:w-auto"
         >
-          {isUploading ? (
-            <>
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-              Uploading...
-            </>
-          ) : (
-            <>
-              <FiCheckCircle size={17} />
-              Upload{" "}
-              {selectedImages.length > 0
-                ? `${selectedImages.length} Images`
-                : "Images"}
-            </>
-          )}
-        </button>
+          <FiCheckCircle size={17} />
+          Upload{" "}
+          {selectedImages.length > 0
+            ? `${selectedImages.length} Images`
+            : "Images"}
+        </CustomButton>
       </div>
     </section>
   );
