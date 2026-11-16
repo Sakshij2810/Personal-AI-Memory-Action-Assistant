@@ -1,4 +1,4 @@
-import type { Request, Response } from "express";
+import { type Request, type Response } from "express";
 import fs from "node:fs/promises";
 
 import { UploadedImage } from "../types/types.js";
@@ -157,11 +157,70 @@ export const getUserImages = async (req: Request, res: Response) => {
 };
 
 // get Image File
+/* Authenticate → Query database → Verify ownership → Resolve file path → Security check → Send image
+
+1. Get the required information
+
+- Get the authenticated user's ID from req.user.
+- Get the image ID from the route parameter (req.params).
+
+2. Validate authentication
+
+- Check whether the user ID exists.
+- If not, return HTTP 401 Unauthorized.
+
+3. Fetch image information from PostgreSQL
+
+- Query the media_files table.
+- Select only storage_key and mime_type.
+- Find the record using both:
+  - Image ID
+  - Authenticated user's ID
+Hint: Use SQL parameterized queries with $1 and $2.
+
+4. Check whether the image exists
+
+- If the query returns zero rows, return HTTP 404 Not Found.
+
+5. Extract image information
+
+- Get storage_key and mime_type from the database result.
+
+6. Construct the image's absolute path
+
+- Get the local storage directory using process.cwd() and path.resolve().
+- Construct the complete image path using the storage directory and storage_key.
+
+7. Validate the image path (security check)
+
+- Ensure the constructed image path stays inside the intended storage directory.
+- If it attempts to escape that directory, return HTTP 400 Bad Request.
+
+8. Set the response content type
+
+- Tell Express which type of file it is sending using the MIME type retrieved from PostgreSQL.
+
+9. Send the image file
+
+- Use Express's file-sending method to return the image.
+- Handle errors that occur while sending the file.
+- If the response hasn't already been sent, return HTTP 404.
+
+10. Handle unexpected errors
+
+- Add a catch block.
+- Log the error.
+- Return HTTP 500 Internal Server Error.
+
+ */
+
 export const getImageFile = async (req: Request, res: Response) => {
   try {
+    // 1. Get user's ID, image ID
     const userId = req.user?.id;
     const imageId = req.params.id;
 
+    // 2. Validate authentication
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -169,15 +228,18 @@ export const getImageFile = async (req: Request, res: Response) => {
       });
     }
 
+    // 3. Fetch image information from PostgreSQL
     const result = await pool.query(
       `
-      SELECT storage_key, mime_type
+      SELECT storage_key, mime_type 
       FROM media_files
       WHERE id = $1 AND user_id = $2
+      
       `,
       [imageId, userId],
     );
 
+    // 4. Check whether the image exists
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
@@ -185,8 +247,10 @@ export const getImageFile = async (req: Request, res: Response) => {
       });
     }
 
+    // 5. Extract image information
     const { storage_key, mime_type } = result.rows[0];
 
+    // 6. Construct the image's absolute path
     const storageDirectory = path.resolve(
       process.cwd(),
       "UploadMediaLocalStorage",
@@ -194,16 +258,17 @@ export const getImageFile = async (req: Request, res: Response) => {
 
     const imagePath = path.resolve(storageDirectory, storage_key);
 
-    // Prevent paths from escaping the storage directory.
+    // 7. Validate the image path (security check)
     if (!imagePath.startsWith(storageDirectory + path.sep)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid image path.",
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid image path." });
     }
 
+    // 8. Set the response content type - Tell Express which type of file it is sending using the MIME type retrieved
     res.type(mime_type);
 
+    // 9. Send the image file
     return res.sendFile(imagePath, (error) => {
       if (error && !res.headersSent) {
         console.error("Image serving error:", error);
@@ -225,6 +290,7 @@ export const getImageFile = async (req: Request, res: Response) => {
 };
 
 // Delete image from PostgreSQL and local storage
+
 export const deleteImage = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
@@ -324,3 +390,85 @@ export const deleteImage = async (req: Request, res: Response) => {
     });
   }
 };
+
+/*
+1. process.cwd() -> /Users/sakshi/Desktop/Personal-AI-Memory-Action-Assistant/backend (It returns the current working directory of your Node.js process.)
+2. path.resolve()  -> /Users/sakshi/Desktop/Personal-AI-Memory-Action-Assistant/backend/UploadMediaLocalStorage (converts path segments into an absolute path.)
+3. path.sep -> (path.sep helps distinguish the storage folder from similarly named folders.) Adding path.sep ensures the path must be inside the actual directory, not merely share its name prefix.
+4. fs.unlink() -> Node.js filesystem function that deletes a file. (Node.js deletes photo1.jpg from your local filesystem.)
+*/
+
+/*
+3. What does !res.headersSent mean?
+
+First, understand res.headersSent.
+
+In Express, an HTTP response has headers and a body.
+
+Headers contain information such as:
+- HTTP status code (200, 404, etc.)
+- Content type (image/jpeg)
+- Content length
+- Other response metadata
+
+res.headersSent is a Boolean property:
+- false: Response headers have not been sent to the client yet.
+- true: Response headers have already been sent.
+
+Now consider:
+if (error && !res.headersSent) {
+
+It means:
+1. Check whether an error occurred.
+2. Check whether Express has not already started sending the response.
+3. Only then send an error response.
+Why is this important with res.sendFile()?
+
+Imagine:
+1. Express starts sending a large image.
+2. Some part of the file is successfully sent.
+3. An error occurs while sending the remaining data.
+4. The response headers have already been sent.
+You cannot safely send another JSON response such as:
+res.status(404).json({
+  message: "Image not found",
+});
+
+
+The response has already started. Trying to send another response can cause an error such as ERR_HTTP_HEADERS_SENT.
+
+So:
+!res.headersSent
+
+
+protects you from attempting to send a second response.
+
+Important: It doesn't mean the entire response has finished. It only tells you whether the headers have been sent.
+*/
+
+/**
+ fileError.code !== "ENOENT"
+ENOENT is a Node.js filesystem error code meaning:
+
+Error NO ENTry — the requested file or directory does not exist.
+
+Imagine these two scenarios:
+Scenario 1
+File already missing
+
+fileError.code === "ENOENT"
+
+Your condition evaluates to false because the error is ENOENT.
+
+The error is ignored, and execution continues to the success response.
+
+
+Scenario 2
+Other deletion failure
+
+fileError.code === "EACCES"
+
+For example, permission denied.
+
+Your condition evaluates to true, so the error is logged and your controller returns fileDeleted: false.
+ */

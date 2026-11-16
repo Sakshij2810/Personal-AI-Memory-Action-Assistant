@@ -9,6 +9,7 @@ import Home from "./views/Home/Home";
 import Dashboard from "./views/Dashboard/Dashboard";
 import UploadImages from "./views/MediaUploads/UploadImages";
 import ImageGallery from "./views/Storage/ImageGallery";
+import { REACT_APP_NAV_ROUTES } from "./Router/AppNavigation";
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -51,7 +52,7 @@ function App() {
           path="/"
           element={
             user ? (
-              <Navigate to="/dashboard" replace />
+              <Navigate to={REACT_APP_NAV_ROUTES.dashboard} replace />
             ) : (
               <Home setUser={setUser} />
             )
@@ -59,7 +60,7 @@ function App() {
         />
         {/* ------------------- Dashboard ------------------- */}
         <Route
-          path="/dashboard"
+          path={REACT_APP_NAV_ROUTES.dashboard}
           element={
             user ? (
               <Dashboard user={user} setUser={setUser} />
@@ -71,7 +72,7 @@ function App() {
 
         {/* ------------------- Media Uploads ------------------- */}
         <Route
-          path="/upload-images"
+          path={REACT_APP_NAV_ROUTES.upload_images}
           element={
             user ? (
               <UploadImages user={user} setUser={setUser} />
@@ -83,7 +84,7 @@ function App() {
 
         {/* ------------------- Storage ------------------- */}
         <Route
-          path="/image_gallery"
+          path={REACT_APP_NAV_ROUTES.image_gallery}
           element={
             user ? (
               <ImageGallery user={user} setUser={setUser} />
