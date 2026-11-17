@@ -25,3 +25,7 @@ SQL – Quick Revision Summary
 12. Composite Index: An index on multiple columns, e.g. (user_id, uploaded_at DESC), useful for filtering a user's media and sorting by upload date.
 
 Remember: Indexes improve read performance but require extra storage and can slow down writes.
+
+Redis
+
+1. why we created separate bullmqRedis and not used the already created one?

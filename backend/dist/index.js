@@ -1,11 +1,28 @@
-import express from "express";
 import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import cookieParser from "cookie-parser";
 import pool from "./config/db.js";
+import authRouter from "./routes/auth.routes.js";
+import morgan from "morgan";
+import mediaRouter from "./routes/media.routes.js";
+import { isAuth } from "./middleware/isAuth.js";
 const app = express();
+// inbuit middlewares
+app.use(express.json());
+app.use(cookieParser());
+app.use(cors({
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
+}));
+app.use(morgan("dev"));
 const PORT = process.env.PORT || 8000;
 app.get("/", (req, res) => {
     res.send("Hello from server");
 });
+// all routes
+app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/media", isAuth, mediaRouter);
 async function startServer() {
     if (!process.env.DATABASE_URL) {
         throw new Error("DATABASE_URL is missing. Add it to your .env file.");

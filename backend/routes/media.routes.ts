@@ -5,6 +5,7 @@ import {
   getUserImages,
   uploadMultipleImages,
   uploadSingleImage,
+  getThumbnailImageFile,
 } from "../controllers/media.controller.js";
 import { upload } from "../middleware/multer.js";
 import { isAuth } from "../middleware/isAuth.js";
@@ -26,6 +27,7 @@ mediaRouter.post(
 
 mediaRouter.get("/", isAuth, getUserImages);
 mediaRouter.get("/:id/file", isAuth, getImageFile);
+mediaRouter.get("/:id/thumbnail", isAuth, getThumbnailImageFile);
 mediaRouter.delete("/:id", isAuth, deleteImage);
 
 export default mediaRouter;

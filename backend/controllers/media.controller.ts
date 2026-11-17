@@ -4,6 +4,9 @@ import fs from "node:fs/promises";
 import { UploadedImage } from "../types/types.js";
 import pool from "../config/db.js";
 import path from "node:path";
+import mediaProcessingQueue from "../queues/media.queue.js";
+
+// -------------------------------------------------------------------------- Helpers --------------------------------------------------------------------------
 
 // save Image Meta data into DB
 const saveImageMetadata = async (userId: string, files: UploadedImage[]) => {
@@ -52,6 +55,28 @@ const saveImageMetadata = async (userId: string, files: UploadedImage[]) => {
   }
 };
 
+// Create Jobs for each image : Add uploaded images to the BullMQ processing queue. enqueueMediaProcessingJobs
+const enqueueMediaProcessingJobs = async (
+  images: {
+    id: string;
+    user_id: string;
+    storage_key: string;
+  }[],
+) => {
+  const jobs = images.map((image) => ({
+    name: "process-image",
+    data: {
+      mediaId: image.id,
+      userId: image.user_id,
+      storageKey: image.storage_key,
+    },
+  }));
+
+  return await mediaProcessingQueue.addBulk(jobs);
+};
+
+// -------------------------------------------------------------------------- Controllers --------------------------------------------------------------------------
+
 // Single image upload
 export const uploadSingleImage = async (req: Request, res: Response) => {
   const file = req.file;
@@ -63,16 +88,13 @@ export const uploadSingleImage = async (req: Request, res: Response) => {
     });
   }
 
-  try {
-    const images = await saveImageMetadata(req.user!.id, [file]);
+  let images;
 
-    return res.status(201).json({
-      success: true,
-      message: "Image uploaded successfully.",
-      image: images[0],
-    });
+  // 1. Save image metadata in PostgreSQL.
+  try {
+    images = await saveImageMetadata(req.user!.id, [file]);
   } catch (error: unknown) {
-    // Remove the physical file if the database operation fails.
+    // Only remove the physical file if database saving fails.
     await fs.unlink(file.path).catch(() => undefined);
 
     console.error("Single image upload error:", error);
@@ -80,6 +102,30 @@ export const uploadSingleImage = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message: "Failed to save image metadata.",
+    });
+  }
+
+  // 2. Add the image to BullMQ.
+  try {
+    await enqueueMediaProcessingJobs(images);
+
+    return res.status(201).json({
+      success: true,
+      message: "Image uploaded and queued for processing.",
+      processingQueued: true,
+      image: images[0],
+    });
+  } catch (error: unknown) {
+    console.error("Failed to enqueue image processing job:", error);
+
+    // Image and database record are already saved.
+    // Do not delete the original file.
+
+    return res.status(201).json({
+      success: true,
+      message: "Image uploaded, but processing could not be queued.",
+      processingQueued: false,
+      image: images[0],
     });
   }
 };
@@ -94,15 +140,12 @@ export const uploadMultipleImages = async (req: Request, res: Response) => {
       message: "Please select at least one image to upload.",
     });
   }
-  try {
-    const images = await saveImageMetadata(req.user!.id, files);
 
-    return res.status(201).json({
-      success: true,
-      message: `${images.length} images uploaded successfully.`,
-      count: images.length,
-      images,
-    });
+  let images;
+
+  // 1. Save all image metadata in PostgreSQL.
+  try {
+    images = await saveImageMetadata(req.user!.id, files);
   } catch (error: unknown) {
     // Remove all physical files if the database operation fails.
     await Promise.all(
@@ -114,6 +157,33 @@ export const uploadMultipleImages = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message: "Failed to save image metadata.",
+    });
+  }
+
+  // 2. Add one processing job per image.
+  try {
+    const jobs = await enqueueMediaProcessingJobs(images);
+
+    return res.status(201).json({
+      success: true,
+      message: `${images.length} images uploaded and queued for processing.`,
+      count: images.length,
+      processingQueued: true,
+      jobsQueued: jobs.length,
+      images,
+    });
+  } catch (error: unknown) {
+    console.error("Failed to enqueue image processing jobs:", error);
+
+    // Database records and original files are already saved.
+    // Do not delete them.
+
+    return res.status(201).json({
+      success: true,
+      message: "Images uploaded, but processing could not be queued.",
+      count: images.length,
+      processingQueued: false,
+      images,
     });
   }
 };
@@ -132,10 +202,21 @@ export const getUserImages = async (req: Request, res: Response) => {
 
     const result = await pool.query(
       `
-      SELECT id, filename, storage_key,mime_type, file_size, uploaded_at
+      SELECT
+        id,
+        filename,
+        storage_key,
+        mime_type,
+        file_size,
+        uploaded_at,
+        processing_status,
+        thumbnail_key,
+        width,
+        height,
+        format
       FROM media_files
       WHERE user_id = $1
-         AND status = 'uploaded'
+        AND status = 'uploaded'
       ORDER BY uploaded_at DESC
       `,
       [userId],
@@ -285,6 +366,89 @@ export const getImageFile = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message: "Failed to retrieve image.",
+    });
+  }
+};
+
+// get Thumbnail ImageFile
+export const getThumbnailImageFile = async (req: Request, res: Response) => {
+  try {
+    // 1. Authenticate the user.
+    const userId = req.user?.id;
+    const imageId = req.params.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    // 2. Find the image belonging to this user.
+    const result = await pool.query(
+      `
+      SELECT thumbnail_key, processing_status
+      FROM media_files
+      WHERE id = $1 AND user_id = $2
+      `,
+      [imageId, userId],
+    );
+
+    // 3. Check whether the image exists.
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Image not found.",
+      });
+    }
+
+    // 4. Check whether thumbnail processing is complete.
+    const { thumbnail_key, processing_status } = result.rows[0];
+
+    if (processing_status !== "completed" || !thumbnail_key) {
+      return res.status(409).json({
+        success: false,
+        message: "Thumbnail is not ready yet.",
+        processingStatus: processing_status,
+      });
+    }
+
+    // 5. Construct absolute paths.
+    const thumbnailDirectory = path.resolve(
+      process.cwd(),
+      "UploadMediaThumbnails",
+    );
+
+    const thumbnailPath = path.resolve(thumbnailDirectory, thumbnail_key);
+
+    // 6. Prevent path traversal.
+    if (!thumbnailPath.startsWith(thumbnailDirectory + path.sep)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid thumbnail path.",
+      });
+    }
+
+    // 7. Set content type.
+    res.type("image/webp");
+
+    // 8. Send the thumbnail.
+    return res.sendFile(thumbnailPath, (error) => {
+      if (error && !res.headersSent) {
+        console.error("Thumbnail serving error:", error);
+
+        res.status(404).json({
+          success: false,
+          message: "Thumbnail file not found.",
+        });
+      }
+    });
+  } catch (error: unknown) {
+    console.error("Get thumbnail error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve thumbnail.",
     });
   }
 };
