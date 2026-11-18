@@ -1,0 +1,24 @@
+1. A recovery mechanism
+
+We'll periodically check PostgreSQL for images that are still waiting for processing and ensure their jobs exist in BullMQ.
+The flow will look like this:
+
+       PostgreSQL
+           |
+           v
+ Find images with
+ status = uploaded
+           |
+           v
+    For each image
+           |
+           v
+ Check whether its
+ BullMQ job exists
+       /       \
+     Yes        No
+      |          |
+    Skip       Add job
+                 |
+                 v
+             Redis Queue

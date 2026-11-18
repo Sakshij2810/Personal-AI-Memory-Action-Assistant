@@ -43,3 +43,20 @@ SELECT id, user_id, storage_key, processing_status
 FROM media_files
 ORDER BY uploaded_at DESC
 LIMIT 5;
+
+
+
+-- Track when background processing started.
+ALTER TABLE media_files
+ADD COLUMN IF NOT EXISTS processing_started_at TIMESTAMPTZ;
+
+-- Track when the media record was last updated.
+ALTER TABLE media_files
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+
+
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name = 'media_files'
+ORDER BY ordinal_position;

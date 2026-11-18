@@ -14,8 +14,8 @@ import api from "../../../utils/axios";
 import { server_base_endpoints } from "../../../utils/server_base_endpoints";
 
 import type { MultipleUploadImageResponse, SelectedImage } from "../types";
-import CustomFileInputField from "../../../components/ui/CustomFileInputField";
-import CustomButton from "../../../components/ui/Button";
+import CustomFileInputField from "../../../components/form/CustomFileInputField";
+import CustomButton from "../../../components/form/Button";
 
 interface UploadImageFormProps {
   selectedImages: SelectedImage[];
