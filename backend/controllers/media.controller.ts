@@ -1,79 +1,11 @@
 import { type Request, type Response } from "express";
 import fs from "node:fs/promises";
-
-import { UploadedImage } from "../types/types.js";
 import pool from "../config/db.js";
 import path from "node:path";
-import mediaProcessingQueue from "../queues/media.queue.js";
-
-// -------------------------------------------------------------------------- Helpers --------------------------------------------------------------------------
-
-// save Image Meta data into DB
-const saveImageMetadata = async (userId: string, files: UploadedImage[]) => {
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    const uploadedImages = [];
-
-    for (const file of files) {
-      const result = await client.query(
-        `
-        INSERT INTO media_files (
-          user_id,
-          filename,
-          storage_key,
-          mime_type,
-          file_size,
-          status
-        )
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING *
-        `,
-        [
-          userId,
-          file.originalname,
-          file.filename,
-          file.mimetype,
-          file.size,
-          "uploaded",
-        ],
-      );
-
-      uploadedImages.push(result.rows[0]);
-    }
-
-    await client.query("COMMIT");
-
-    return uploadedImages;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
-};
-
-// Create Jobs for each image : Add uploaded images to the BullMQ processing queue. enqueueMediaProcessingJobs
-const enqueueMediaProcessingJobs = async (
-  images: {
-    id: string;
-    user_id: string;
-    storage_key: string;
-  }[],
-) => {
-  const jobs = images.map((image) => ({
-    name: "process-image",
-    data: {
-      mediaId: image.id,
-      userId: image.user_id,
-      storageKey: image.storage_key,
-    },
-  }));
-
-  return await mediaProcessingQueue.addBulk(jobs);
-};
+import {
+  enqueueMediaProcessingJobs,
+  saveImageMetadata,
+} from "../helpers/media.helper.js";
 
 // -------------------------------------------------------------------------- Controllers --------------------------------------------------------------------------
 
@@ -456,54 +388,89 @@ export const getThumbnailImageFile = async (req: Request, res: Response) => {
 // Delete image from PostgreSQL and local storage
 
 export const deleteImage = async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  const imageId = req.params.id;
+
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      message: "Unauthorized",
+    });
+  }
+
+  const client = await pool.connect();
+
   try {
-    const userId = req.user?.id;
-    const imageId = req.params.id;
+    // 1. Start transaction.
+    await client.query("BEGIN");
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorised",
-      });
-    }
-
-    // 1. Find the image and verify that it belongs to this user.
-    const imageResult = await pool.query(
+    // 2. Find image and lock its database record.
+    // FOR UPDATE locks the PostgreSQL record during our deletion transaction.
+    const imageResult = await client.query(
       `
-      SELECT storage_key
+      SELECT storage_key, thumbnail_key
       FROM media_files
       WHERE id = $1 AND user_id = $2
+      FOR UPDATE 
       `,
       [imageId, userId],
     );
 
     if (imageResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+
       return res.status(404).json({
         success: false,
         message: "Image not found.",
       });
     }
 
-    const { storage_key } = imageResult.rows[0];
+    const { storage_key, thumbnail_key } = imageResult.rows[0];
 
-    // 2. Build the absolute path of the image in local storage.
+    // 3. Resolve storage directories.
     const storageDirectory = path.resolve(
       process.cwd(),
       "UploadMediaLocalStorage",
     );
 
+    const thumbnailDirectory = path.resolve(
+      process.cwd(),
+      "UploadMediaThumbnails",
+    );
+
+    // 4. Resolve file paths.
     const imagePath = path.resolve(storageDirectory, storage_key);
 
-    // 3. Prevent path traversal.
-    if (!imagePath.startsWith(storageDirectory + path.sep)) {
+    const thumbnailPath = thumbnail_key
+      ? path.resolve(thumbnailDirectory, thumbnail_key)
+      : null;
+
+    // 5. Validate paths to prevent path traversal.
+    const isSafePath = (directory: string, filePath: string) => {
+      const relativePath = path.relative(directory, filePath);
+
+      return (
+        relativePath !== "" &&
+        !relativePath.startsWith(`..${path.sep}`) &&
+        relativePath !== ".." &&
+        !path.isAbsolute(relativePath)
+      );
+    };
+
+    if (
+      !isSafePath(storageDirectory, imagePath) ||
+      (thumbnailPath && !isSafePath(thumbnailDirectory, thumbnailPath))
+    ) {
+      await client.query("ROLLBACK");
+
       return res.status(400).json({
         success: false,
-        message: "Invalid image path.",
+        message: "Invalid file path.",
       });
     }
 
-    // 4. Delete the database record, checking ownership again.
-    const deleteResult = await pool.query(
+    // 6. Delete the database record.
+    const deleteResult = await client.query(
       `
       DELETE FROM media_files
       WHERE id = $1 AND user_id = $2
@@ -513,45 +480,67 @@ export const deleteImage = async (req: Request, res: Response) => {
     );
 
     if (deleteResult.rowCount === 0) {
+      await client.query("ROLLBACK");
+
       return res.status(404).json({
         success: false,
         message: "Image not found.",
       });
     }
 
-    // 5. Delete the physical image file.
-    try {
-      await fs.unlink(imagePath);
-    } catch (fileError: unknown) {
-      // ENOENT means the file was already missing.
-      if (
-        fileError instanceof Error &&
-        "code" in fileError &&
-        fileError.code !== "ENOENT"
-      ) {
-        console.error("Physical image deletion failed:", fileError);
+    // 7. Commit database deletion.
+    await client.query("COMMIT");
 
-        return res.status(200).json({
-          success: true,
-          fileDeleted: false,
-          message:
-            "Image metadata deleted, but the physical file could not be removed.",
-        });
+    // 8. Safely delete physical files.
+    const deleteFile = async (filePath: string) => {
+      try {
+        await fs.unlink(filePath);
+        return true;
+      } catch (error: unknown) {
+        // Missing files are already effectively deleted.
+        if (
+          typeof error === "object" &&
+          error !== null &&
+          "code" in error &&
+          error.code === "ENOENT"
+        ) {
+          return true;
+        }
+
+        console.error(`File deletion failed: ${filePath}`, error);
+        return false;
       }
-    }
+    };
 
+    const [originalDeleted, thumbnailDeleted] = await Promise.all([
+      deleteFile(imagePath),
+      thumbnailPath ? deleteFile(thumbnailPath) : Promise.resolve(true),
+    ]);
+
+    const cleanupComplete = originalDeleted && thumbnailDeleted;
+
+    // 9. Return cleanup result.
     return res.status(200).json({
       success: true,
-      fileDeleted: true,
-      message: "Image deleted successfully.",
+      metadataDeleted: true,
+      originalDeleted,
+      thumbnailDeleted,
+      cleanupComplete,
+      message: cleanupComplete
+        ? "Image and thumbnail deleted successfully."
+        : "Image metadata deleted, but some physical files could not be removed.",
     });
   } catch (error: unknown) {
+    await client.query("ROLLBACK").catch(() => undefined);
+
     console.error("Delete image error:", error);
 
     return res.status(500).json({
       success: false,
       message: "Failed to delete image.",
     });
+  } finally {
+    client.release();
   }
 };
 

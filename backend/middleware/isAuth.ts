@@ -24,9 +24,11 @@ export const isAuth = async (
     next();
   } catch (error: unknown) {
     console.error("Authentication middleware error:", error);
-    return res.status(500).json({
+
+    return res.status(503).json({
       success: false,
-      message: error instanceof Error ? error.message : "Internal server error",
+      message:
+        "Authentication service is temporarily unavailable. Please try again.",
     });
   }
 };
