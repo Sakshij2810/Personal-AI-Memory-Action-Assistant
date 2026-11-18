@@ -1,0 +1,1 @@
+-- R&D/DB/checkDatabase.sql : Queries to inspect and debug your database

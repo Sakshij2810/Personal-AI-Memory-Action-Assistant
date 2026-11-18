@@ -8,11 +8,11 @@ import {
   recoverStuckProcessingJobs,
   recoverUnqueuedMediaJobs,
 } from "../helpers/media.helper.js";
-
+import { mediaStorageDir, mediaThumbnailDir } from "../config/media-storage.js";
 /* One important operational point: Keep the worker running in its own terminal. Your Express server and worker will be separate running processes.
  */
 
-const mediaWorker = new Worker(
+export const mediaWorker = new Worker(
   "media-processing",
   /* 1. name of queue
       - It must match the queue name we used in media.queue.ts.
@@ -50,17 +50,10 @@ const mediaWorker = new Worker(
     );
 
     // 2. Locate the original image.
-    const originalPath = path.resolve(
-      process.cwd(),
-      "UploadMediaLocalStorage",
-      storageKey,
-    );
+    const originalPath = path.resolve(mediaStorageDir, storageKey);
 
     // 3. Prepare the thumbnail directory.
-    const thumbnailDirectory = path.resolve(
-      process.cwd(),
-      "UploadMediaThumbnails",
-    );
+    const thumbnailDirectory = mediaThumbnailDir;
 
     await mkdir(thumbnailDirectory, { recursive: true });
 
@@ -226,3 +219,15 @@ mediaWorker.on("failed", async (job, error) => {
 mediaWorker.on("error", (error) => {
   console.error("Worker error:", error);
 });
+
+// This lets automated tests stop the worker and its recovery interval cleanly.
+export const closeMediaWorker = async () => {
+  if (recoveryInterval) {
+    clearInterval(recoveryInterval);
+    recoveryInterval = undefined;
+  }
+
+  await mediaWorker.close();
+
+  console.log("Media worker closed successfully.");
+};

@@ -1,9 +1,8 @@
 import fs from "node:fs";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
 import crypto from "crypto";
-
 import multer from "multer";
+
+import { mediaStorageDir } from "../config/media-storage.js";
 
 /*
 1. Create the uploads folder if it doesn't exist.
@@ -24,17 +23,11 @@ import multer from "multer";
    - cb   → callback used to tell Multer what to do
 
 5. fileFilter checks the uploaded file.
-   Here, we only allow PDF files based on their MIME type.
+   Here, we only allow JPG, PNG and WebP files based on their MIME type.
 */
 
 // 1.  Create the uploads folder if it doesn't exist.
-const currentFile = fileURLToPath(import.meta.url);
-const currentDirectory = path.dirname(currentFile);
-
-export const uploadPath = path.resolve(
-  currentDirectory,
-  "../UploadMediaLocalStorage",
-);
+export const uploadPath = mediaStorageDir;
 
 fs.mkdirSync(uploadPath, { recursive: true });
 

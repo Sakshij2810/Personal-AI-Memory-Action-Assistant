@@ -6,6 +6,7 @@ import {
   enqueueMediaProcessingJobs,
   saveImageMetadata,
 } from "../helpers/media.helper.js";
+import { mediaStorageDir, mediaThumbnailDir } from "../config/media-storage.js";
 
 // -------------------------------------------------------------------------- Controllers --------------------------------------------------------------------------
 
@@ -264,10 +265,7 @@ export const getImageFile = async (req: Request, res: Response) => {
     const { storage_key, mime_type } = result.rows[0];
 
     // 6. Construct the image's absolute path
-    const storageDirectory = path.resolve(
-      process.cwd(),
-      "UploadMediaLocalStorage",
-    );
+    const storageDirectory = mediaStorageDir;
 
     const imagePath = path.resolve(storageDirectory, storage_key);
 
@@ -346,10 +344,7 @@ export const getThumbnailImageFile = async (req: Request, res: Response) => {
     }
 
     // 5. Construct absolute paths.
-    const thumbnailDirectory = path.resolve(
-      process.cwd(),
-      "UploadMediaThumbnails",
-    );
+    const thumbnailDirectory = mediaThumbnailDir;
 
     const thumbnailPath = path.resolve(thumbnailDirectory, thumbnail_key);
 
@@ -428,15 +423,9 @@ export const deleteImage = async (req: Request, res: Response) => {
     const { storage_key, thumbnail_key } = imageResult.rows[0];
 
     // 3. Resolve storage directories.
-    const storageDirectory = path.resolve(
-      process.cwd(),
-      "UploadMediaLocalStorage",
-    );
+    const storageDirectory = mediaStorageDir;
 
-    const thumbnailDirectory = path.resolve(
-      process.cwd(),
-      "UploadMediaThumbnails",
-    );
+    const thumbnailDirectory = mediaThumbnailDir;
 
     // 4. Resolve file paths.
     const imagePath = path.resolve(storageDirectory, storage_key);
