@@ -9,9 +9,14 @@ import {
   recoverUnqueuedMediaJobs,
 } from "../helpers/media.helper.js";
 import { mediaStorageDir, mediaThumbnailDir } from "../config/media-storage.js";
+import { registerAIProviders } from "../services/ai/register.js";
 /* One important operational point: Keep the worker running in its own terminal. Your Express server and worker will be separate running processes.
  */
 
+// 1. Register AI providers
+registerAIProviders();
+
+// 2. Create BullMQ worker
 export const mediaWorker = new Worker(
   "media-processing",
   /* 1. name of queue

@@ -1,8 +1,10 @@
+// backend/config/db.ts
 import { Pool } from "pg";
+import { env } from "../lib/env.js";
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : false,
+  connectionString: env.DATABASE_URL,
+  ssl: env.PGSSL === true ? { rejectUnauthorized: false } : false,
 });
 
 pool.on("error", (error) => {

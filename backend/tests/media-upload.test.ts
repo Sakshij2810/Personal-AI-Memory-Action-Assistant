@@ -20,6 +20,7 @@ import redis from "../shared/redis/redis.js";
 import bullmqRedis from "../shared/redis/bullmq-connection.js";
 import mediaProcessingQueue from "../queues/media.queue.js";
 import { mediaStorageDir, mediaThumbnailDir } from "../config/media-storage.js";
+import { env } from "../lib/env.js";
 
 describe("Media upload integration tests", () => {
   let userId: string;
@@ -46,7 +47,7 @@ describe("Media upload integration tests", () => {
       );
     }
 
-    const redisUrl = new URL(process.env.REDIS_URL!);
+    const redisUrl = new URL(env.REDIS_URL!);
 
     if (redisUrl.pathname !== "/1") {
       throw new Error(

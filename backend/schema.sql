@@ -105,3 +105,94 @@ ON media_files(uploaded_at DESC);
 -- Faster queries when recovering pending media jobs.
 CREATE INDEX IF NOT EXISTS idx_media_files_processing_status
 ON media_files(processing_status);
+
+
+-- =========================================================
+-- 7. AI ANALYSIS STATUS ENUM
+-- =========================================================
+
+DO $$
+BEGIN
+    CREATE TYPE analysis_status AS ENUM (
+        'pending',
+        'processing',
+        'completed',
+        'failed'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+
+-- =========================================================
+-- 8. MEDIA ANALYSIS TABLE
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS media_analysis (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- One analysis record per media file.
+    media_file_id UUID NOT NULL UNIQUE
+        REFERENCES media_files(id) ON DELETE CASCADE,
+
+    -- AI-generated information
+    description TEXT,
+
+    -- Example: [{"name": "wedding", "confidence": 0.95}]
+    labels JSONB NOT NULL DEFAULT '[]'::jsonb
+        CHECK (jsonb_typeof(labels) = 'array'),
+
+    -- AI provider information
+    provider VARCHAR(50),
+    model VARCHAR(100),
+
+    -- Analysis lifecycle
+    status analysis_status NOT NULL DEFAULT 'pending',
+
+    -- Retry tracking
+    attempt_count INTEGER NOT NULL DEFAULT 0
+        CHECK (attempt_count >= 0),
+
+    -- Error information
+    error_message TEXT,
+
+    -- Timestamps
+    analysis_started_at TIMESTAMPTZ,
+    analyzed_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+
+
+-- {
+--   "media_file_id": "dba490fa-5acc-4852-9ffc-4f1bf5c90d18",
+--   "description": "People in traditional clothing participating in a festive celebration outdoors with yellow flower petals falling around them.",
+--   "labels": [
+--     {
+--       "name": "wedding",
+--       "confidence": 0.95
+--     },
+--     {
+--       "name": "outdoor",
+--       "confidence": 0.9
+--     }
+--   ],
+--   "provider": "gemini",
+--   "model": "gemini-3.5-flash-lite",
+--   "status": "completed",
+--   "attempt_count": 1,
+--   "error_message": null
+-- }
+
+
+-- =========================================================
+-- 9. MEDIA ANALYSIS INDEXES
+-- =========================================================
+
+CREATE INDEX IF NOT EXISTS idx_media_analysis_status
+ON media_analysis(status);
+
+CREATE INDEX IF NOT EXISTS idx_media_analysis_updated_at
+ON media_analysis(updated_at);

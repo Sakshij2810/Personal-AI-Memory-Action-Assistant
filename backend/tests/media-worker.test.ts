@@ -21,6 +21,7 @@ import mediaProcessingQueue from "../queues/media.queue.js";
 import { mediaWorker, closeMediaWorker } from "../workers/media.worker.js";
 
 import { mediaStorageDir, mediaThumbnailDir } from "../config/media-storage.js";
+import { env } from "../lib/env.js";
 
 describe("Media worker integration tests", () => {
   let userId: string;
@@ -33,7 +34,7 @@ describe("Media worker integration tests", () => {
       throw new Error("Unsafe database. Expected memora_ai_test.");
     }
 
-    const redisUrl = new URL(process.env.REDIS_URL!);
+    const redisUrl = new URL(env.REDIS_URL!);
 
     if (redisUrl.pathname !== "/1") {
       throw new Error("Unsafe Redis database. Expected Redis DB 1.");

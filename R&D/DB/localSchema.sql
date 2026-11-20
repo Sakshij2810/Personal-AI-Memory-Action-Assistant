@@ -124,3 +124,15 @@ WHERE processing_status = 'completed'
 -- =========================================================
 
 SELECT current_database();
+
+
+
+
+
+SELECT
+    table_name,
+    column_name,
+    data_type
+FROM information_schema.columns
+WHERE table_name = 'media_analysis'
+ORDER BY ordinal_position;

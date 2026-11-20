@@ -1,7 +1,8 @@
 import "dotenv/config";
 import { Redis } from "ioredis";
+import { env } from "../../lib/env.js";
 
-const redisUrl = process.env.REDIS_URL;
+const redisUrl = env.REDIS_URL;
 
 if (!redisUrl) {
   throw new Error("REDIS_URL is missing in your .env file");

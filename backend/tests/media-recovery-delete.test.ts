@@ -27,6 +27,7 @@ import {
 } from "../helpers/media.helper.js";
 
 import { mediaStorageDir, mediaThumbnailDir } from "../config/media-storage.js";
+import { env } from "../lib/env.js";
 
 describe("Media recovery and deletion integration tests", () => {
   let userId: string;
@@ -172,7 +173,7 @@ describe("Media recovery and deletion integration tests", () => {
       );
     }
 
-    const redisUrl = new URL(process.env.REDIS_URL!);
+    const redisUrl = new URL(env.REDIS_URL!);
 
     if (redisUrl.pathname !== "/1") {
       throw new Error(

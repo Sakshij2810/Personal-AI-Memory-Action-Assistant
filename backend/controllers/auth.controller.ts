@@ -5,6 +5,7 @@ import type { Request, Response } from "express";
 import { app } from "../config/firebase.js";
 import pool from "../config/db.js";
 import redis from "../shared/redis/redis.js";
+import { env } from "../lib/env.js";
 
 // login
 export const GoogleAuth = async (req: Request, res: Response) => {
@@ -54,7 +55,7 @@ export const GoogleAuth = async (req: Request, res: Response) => {
     );
 
     // 5. Store session ID in HTTP-only cookie
-    const isProduction = process.env.NODE_ENV === "production";
+    const isProduction = env.NODE_ENV === "production";
 
     res.cookie("session", sessionId, {
       httpOnly: true,
@@ -88,7 +89,7 @@ export const logOut = async (req: Request, res: Response) => {
     }
 
     // 2. Clear session cookie
-    const isProduction = process.env.NODE_ENV === "production";
+    const isProduction = env.NODE_ENV === "production";
 
     res.clearCookie("session", {
       httpOnly: true,

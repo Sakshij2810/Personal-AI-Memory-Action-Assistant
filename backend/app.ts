@@ -9,6 +9,7 @@ import type { ErrorRequestHandler } from "express";
 import authRouter from "./routes/auth.routes.js";
 import mediaRouter from "./routes/media.routes.js";
 import { isAuth } from "./middleware/isAuth.js";
+import { env } from "./lib/env.js";
 
 const app = express();
 
@@ -17,7 +18,7 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL,
+    origin: env.FRONTEND_URL,
     credentials: true,
   }),
 );

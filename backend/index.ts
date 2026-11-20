@@ -1,15 +1,16 @@
 import "dotenv/config";
 import app from "./app.js";
 import pool from "./config/db.js";
+import { env } from "./lib/env.js";
 
-const PORT = process.env.PORT || 8000;
+const PORT = env.PORT || 8000;
 
 async function startServer() {
-  if (!process.env.DATABASE_URL) {
+  if (!env.DATABASE_URL) {
     throw new Error("DATABASE_URL is missing. Add it to your .env file.");
   }
 
-  if (!process.env.JWT_SECRET) {
+  if (!env.JWT_SECRET) {
     throw new Error("JWT_SECRET is missing. Add it to your .env file.");
   }
 

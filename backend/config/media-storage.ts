@@ -1,10 +1,11 @@
 import path from "node:path";
+import { env } from "../lib/env.js";
 
 const resolveStoragePath = (
-  envName: string,
+  envName: "MEDIA_STORAGE_DIR" | "MEDIA_THUMBNAIL_DIR",
   defaultDirectory: string,
 ): string => {
-  const configuredPath = process.env[envName];
+  const configuredPath = env[envName];
 
   return path.resolve(process.cwd(), configuredPath || defaultDirectory);
 };

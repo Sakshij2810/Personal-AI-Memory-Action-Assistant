@@ -108,8 +108,8 @@ For database configuration in `src/config/db.ts`:
 import { Pool } from "pg";
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : false,
+  connectionString: env.DATABASE_URL,
+  ssl: env.PGSSL === "true" ? { rejectUnauthorized: false } : false,
 });
 
 pool.on("error", (error) => {
