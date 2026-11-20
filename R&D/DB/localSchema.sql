@@ -136,3 +136,13 @@ SELECT
 FROM information_schema.columns
 WHERE table_name = 'media_analysis'
 ORDER BY ordinal_position;
+
+
+SELECT typname
+FROM pg_type
+WHERE typname = 'analysis_status';
+
+
+SELECT indexname, indexdef
+FROM pg_indexes
+WHERE tablename = 'media_analysis';

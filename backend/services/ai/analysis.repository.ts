@@ -61,22 +61,24 @@ export async function updateAnalysisStatus(
 ): Promise<AnalysisRecord | null> {
   const result = await pool.query<AnalysisRecord>(
     `
-      UPDATE media_analysis
-      SET
-        status = $2,
-        error_message = $3,
-        attempt_count = CASE
-          WHEN $2 = 'processing' THEN attempt_count + 1
-          ELSE attempt_count
-        END,
-        analysis_started_at = CASE
-          WHEN $2 = 'processing' THEN NOW()
-          ELSE analysis_started_at
-        END,
-        updated_at = NOW()
-      WHERE media_file_id = $1
-      RETURNING *;
-    `,
+    UPDATE media_analysis
+    SET
+      status = $2::analysis_status,
+      error_message = $3,
+      attempt_count = CASE
+        WHEN $2::analysis_status = 'processing'::analysis_status
+          THEN attempt_count + 1
+        ELSE attempt_count
+      END,
+      analysis_started_at = CASE
+        WHEN $2::analysis_status = 'processing'::analysis_status
+          THEN NOW()
+        ELSE analysis_started_at
+      END,
+      updated_at = NOW()
+    WHERE media_file_id = $1
+    RETURNING *;
+  `,
     [mediaFileId, status, errorMessage],
   );
 
