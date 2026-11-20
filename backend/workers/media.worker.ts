@@ -5,18 +5,15 @@ import path from "node:path";
 import { mkdir } from "node:fs/promises";
 import sharp from "sharp";
 import {
+  enqueueImageAnalysisJob,
   recoverStuckProcessingJobs,
   recoverUnqueuedMediaJobs,
 } from "../helpers/media.helper.js";
 import { mediaStorageDir, mediaThumbnailDir } from "../config/media-storage.js";
-import { registerAIProviders } from "../services/ai/register.js";
 /* One important operational point: Keep the worker running in its own terminal. Your Express server and worker will be separate running processes.
  */
 
-// 1. Register AI providers
-registerAIProviders();
-
-// 2. Create BullMQ worker
+//  Create BullMQ worker
 export const mediaWorker = new Worker(
   "media-processing",
   /* 1. name of queue
@@ -112,9 +109,23 @@ export const mediaWorker = new Worker(
       return { success: true, skipped: true, mediaId };
     }
 
+    // 7. Enqueue independent image-analysis job.
+    try {
+      await enqueueImageAnalysisJob(mediaId, userId);
+
+      console.log(`Image analysis queued for media: ${mediaId}`);
+    } catch (error) {
+      // Thumbnail processing has already succeeded.
+      // Do not fail the thumbnail job because analysis enqueueing failed.
+      console.error(
+        `Failed to enqueue image analysis for media ${mediaId}:`,
+        error,
+      );
+    }
+
     console.log(`Media ${mediaId} processed successfully!`);
 
-    // 7. Return the job result.
+    // 8. Return the job result.
     return {
       success: true,
       mediaId,

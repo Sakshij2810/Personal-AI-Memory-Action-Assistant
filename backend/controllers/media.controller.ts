@@ -7,6 +7,7 @@ import {
   saveImageMetadata,
 } from "../helpers/media.helper.js";
 import { mediaStorageDir, mediaThumbnailDir } from "../config/media-storage.js";
+import { getAnalysisByMediaId } from "../services/ai/analysis.repository.js";
 
 // -------------------------------------------------------------------------- Controllers --------------------------------------------------------------------------
 
@@ -530,6 +531,93 @@ export const deleteImage = async (req: Request, res: Response) => {
     });
   } finally {
     client.release();
+  }
+};
+
+export const getImageAnalysis = async (req: Request, res: Response) => {
+  try {
+    // 1. Get authenticated user's ID and image ID.
+    const userId = req.user?.id;
+    const imageId = Array.isArray(req.params.id)
+      ? req.params.id[0]
+      : req.params.id;
+
+    if (!imageId) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid image ID.",
+      });
+    }
+
+    // 2. Validate authentication.
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    // 3. Verify that this image belongs to the logged-in user.
+    const imageResult = await pool.query(
+      `
+      SELECT id
+      FROM media_files
+      WHERE id = $1 AND user_id = $2
+      `,
+      [imageId, userId],
+    );
+
+    if (imageResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Image not found.",
+      });
+    }
+
+    // 4. Fetch the AI analysis record.
+    const analysis = await getAnalysisByMediaId(imageId);
+
+    // 5. If the worker hasn't created a record yet,
+    // return the default pending state.
+    if (!analysis) {
+      return res.status(200).json({
+        success: true,
+        analysis: {
+          status: "pending",
+          description: null,
+          labels: [],
+          provider: null,
+          model: null,
+          attemptCount: 0,
+          errorMessage: null,
+          analysisStartedAt: null,
+          analyzedAt: null,
+        },
+      });
+    }
+
+    // 6. Return the analysis result.
+    return res.status(200).json({
+      success: true,
+      analysis: {
+        status: analysis.status,
+        description: analysis.description,
+        labels: analysis.labels,
+        provider: analysis.provider,
+        model: analysis.model,
+        attemptCount: analysis.attempt_count,
+        errorMessage: analysis.error_message,
+        analysisStartedAt: analysis.analysis_started_at,
+        analyzedAt: analysis.analyzed_at,
+      },
+    });
+  } catch (error: unknown) {
+    console.error("Get image analysis error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to get image analysis.",
+    });
   }
 };
 

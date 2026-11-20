@@ -6,6 +6,7 @@ import {
   uploadMultipleImages,
   uploadSingleImage,
   getThumbnailImageFile,
+  getImageAnalysis,
 } from "../controllers/media.controller.js";
 import { upload } from "../middleware/multer.js";
 
@@ -21,6 +22,7 @@ mediaRouter.post(
 mediaRouter.get("/", getUserImages);
 mediaRouter.get("/:id/file", getImageFile);
 mediaRouter.get("/:id/thumbnail", getThumbnailImageFile);
+mediaRouter.get("/:id/analysis", getImageAnalysis);
 mediaRouter.delete("/:id", deleteImage);
 
 export default mediaRouter;
