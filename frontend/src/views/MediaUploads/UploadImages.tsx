@@ -27,8 +27,10 @@ const UploadImages = ({ user, setUser }: UploadImagesProps) => {
 
   // cleanup function revokes any remaining URLs
   useEffect(() => {
+    const urlsToRevoke = objectUrls.current;
+
     return () => {
-      objectUrls.current.forEach((url) => URL.revokeObjectURL(url));
+      urlsToRevoke.forEach((url) => URL.revokeObjectURL(url));
       /*
       URL.revokeObjectURL -> When you no longer need the preview, use this 
       This tells the browser that the temporary object URL can be released.
@@ -45,7 +47,7 @@ const UploadImages = ({ user, setUser }: UploadImagesProps) => {
 8. Your cleanup function revokes any remaining URLs.
 
       */
-      objectUrls.current.clear();
+      urlsToRevoke.clear();
     };
   }, []);
 

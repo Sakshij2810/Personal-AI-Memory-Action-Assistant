@@ -9,5 +9,6 @@ export const server_base_endpoints = {
     upload_multiple_img: "/api/v1/media/upload/multiple",
     get_all_images: "/api/v1/media",
     delete_img: (id: string) => `/api/v1/media/${id}`,
+    get_analysis: (id: string) => `/api/v1/media/${id}/analysis`,
   },
 };
