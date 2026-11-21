@@ -1,4 +1,4 @@
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { GiArtificialHive, GiTwoCoins } from "react-icons/gi";
 import { FiLogOut, FiPlus, FiSidebar } from "react-icons/fi";
@@ -12,13 +12,14 @@ import { server_base_endpoints } from "../../../utils/server_base_endpoints";
 import api from "../../../utils/axios";
 import axios from "axios";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 export interface SidebarProps {
   user: User;
-  setUser: Dispatch<SetStateAction<User | null>>;
 }
 
-const Sidebar = ({ user, setUser }: SidebarProps) => {
+const Sidebar = ({ user }: SidebarProps) => {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const avatar = user?.display_name
     ? user.display_name
@@ -37,7 +38,7 @@ const Sidebar = ({ user, setUser }: SidebarProps) => {
     try {
       const res = await api.post(server_base_endpoints.auth.logout);
       if (res?.data?.success) {
-        setUser(null);
+        queryClient.setQueryData(["current-user"], null);
         navigate("/");
       }
     } catch (error: unknown) {

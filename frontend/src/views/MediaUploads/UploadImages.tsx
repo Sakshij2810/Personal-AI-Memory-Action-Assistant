@@ -1,23 +1,10 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type Dispatch,
-  type SetStateAction,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 
-import type { User } from "../../types/user";
 import ImagePreview from "./components/ImagePreview";
 import UploadImageForm from "./components/UploadImageForm";
-import Sidebar from "../Dashboard/components/Sidebar";
 import type { SelectedImage } from "./types";
 
-interface UploadImagesProps {
-  user: User;
-  setUser: Dispatch<SetStateAction<User | null>>;
-}
-
-const UploadImages = ({ user, setUser }: UploadImagesProps) => {
+const UploadImages = () => {
   const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
   const objectUrls = useRef(new Set<string>());
   /*
@@ -109,25 +96,19 @@ const UploadImages = ({ user, setUser }: UploadImagesProps) => {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50 font-sans text-[#0A0A0A]">
-      <Sidebar user={user} setUser={setUser} />
+    <div className="p-5 md:p-8">
+      <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-7">
+        <UploadImageForm
+          selectedImages={selectedImages}
+          onFilesSelected={handleFilesSelected}
+          onUploadSuccess={handleUploadSuccess}
+        />
 
-      <main className="min-w-0 flex-1 p-5 md:p-8">
-        <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-7">
-          {/* Upload Section */}
-          <UploadImageForm
-            selectedImages={selectedImages}
-            onFilesSelected={handleFilesSelected}
-            onUploadSuccess={handleUploadSuccess}
-          />
-
-          {/* Preview Section */}
-          <ImagePreview
-            selectedImages={selectedImages}
-            onRemoveImage={handleRemoveImage}
-          />
-        </div>
-      </main>
+        <ImagePreview
+          selectedImages={selectedImages}
+          onRemoveImage={handleRemoveImage}
+        />
+      </div>
     </div>
   );
 };

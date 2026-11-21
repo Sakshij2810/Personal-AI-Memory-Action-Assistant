@@ -4,19 +4,18 @@ import { motion } from "motion/react";
 import { signInWithPopup } from "firebase/auth";
 import axios from "axios";
 import { toast } from "sonner";
-import type { Dispatch, SetStateAction } from "react";
 
 import { auth, provider } from "../../../utils/firebase";
 import api from "../../../utils/axios";
 import { server_base_endpoints } from "../../../utils/server_base_endpoints";
-import type { User } from "../../../types/user";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface LoginModelProps {
   onClose: () => void;
-  setUser: Dispatch<SetStateAction<User | null>>;
 }
 
-const LoginModel = ({ onClose, setUser }: LoginModelProps) => {
+const LoginModel = ({ onClose }: LoginModelProps) => {
+  const queryClient = useQueryClient();
   const handleGoogleAuth = async () => {
     try {
       const result = await signInWithPopup(auth, provider); // This opens the Google login popup and returns the authenticated user's information.
@@ -24,7 +23,7 @@ const LoginModel = ({ onClose, setUser }: LoginModelProps) => {
 
       const res = await api.post(server_base_endpoints.auth.login, { token });
 
-      setUser(res?.data?.user);
+      queryClient.setQueryData(["current-user"], res.data);
       onClose();
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {

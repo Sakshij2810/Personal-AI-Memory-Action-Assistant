@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useState } from "react";
 import { GiArtificialHive } from "react-icons/gi";
 import { FaArrowRight } from "react-icons/fa6";
 
@@ -7,13 +7,8 @@ import dashboard from "../../assets/image.png";
 import LoginModel from "./components/LoginModel";
 
 import { FiImage, FiSearch, FiCalendar, FiShield } from "react-icons/fi";
-import type { User } from "../../types/user";
 
-interface HomeProps {
-  setUser: Dispatch<SetStateAction<User | null>>;
-}
-
-const Home = ({ setUser }: HomeProps) => {
+const Home = () => {
   const [showLogin, setShowLogin] = useState(false);
 
   const features = [
@@ -198,9 +193,7 @@ const Home = ({ setUser }: HomeProps) => {
       </section>
 
       {/* Login Popup */}
-      {showLogin && (
-        <LoginModel onClose={() => setShowLogin(false)} setUser={setUser} />
-      )}
+      {showLogin && <LoginModel onClose={() => setShowLogin(false)} />}
 
       {/* Footer */}
       <footer className="border-t border-black/7 py-6 text-center bg-white">
