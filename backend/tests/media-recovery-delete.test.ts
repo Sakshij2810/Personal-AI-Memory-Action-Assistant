@@ -26,7 +26,7 @@ import mediaProcessingQueue from "../queues/media.queue.js";
 import {
   recoverUnqueuedMediaJobs,
   recoverStuckProcessingJobs,
-} from "../helpers/media.helper.js";
+} from "../helpers/thumbnail.helper.js";
 
 import { mediaStorageDir, mediaThumbnailDir } from "../config/media-storage.js";
 import { env } from "../lib/env.js";

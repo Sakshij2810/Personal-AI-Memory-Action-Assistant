@@ -18,7 +18,10 @@ import {
   updateAnalysisResult,
 } from "../services/ai/analysis.repository.js";
 import { registerAIProviders } from "../services/ai/register.js";
-import { recoverUnqueuedImageAnalysisJobs } from "../helpers/analysis.helper.js";
+import {
+  recoverStuckImageAnalysisJobs,
+  recoverUnqueuedImageAnalysisJobs,
+} from "../helpers/analysis.helper.js";
 
 // Register AI providers before processing any jobs.
 registerAIProviders();
@@ -117,6 +120,7 @@ const runAnalysisRecovery = async () => {
 
   try {
     await recoverUnqueuedImageAnalysisJobs();
+    await recoverStuckImageAnalysisJobs();
   } catch (error) {
     console.error("Image analysis recovery failed:", error);
   } finally {

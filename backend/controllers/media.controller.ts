@@ -4,10 +4,8 @@ import { type Request, type Response } from "express";
 import fs from "node:fs/promises";
 import pool from "../config/db.js";
 import path from "node:path";
-import {
-  enqueueMediaProcessingJobs,
-  saveImageMetadata,
-} from "../helpers/media.helper.js";
+import { saveImageMetadata } from "../helpers/media.helper.js";
+import { enqueueMediaProcessingJobs } from "../helpers/thumbnail.helper.js";
 import { mediaStorageDir, mediaThumbnailDir } from "../config/media-storage.js";
 import { getAnalysisByMediaId } from "../services/ai/analysis.repository.js";
 import { enqueueImageAnalysisJobs } from "../helpers/analysis.helper.js";
@@ -108,7 +106,7 @@ export const uploadMultipleImages = async (req: Request, res: Response) => {
     });
   }
 
-  // 2. Schedule media and analysis jobs independently.
+  // 2. Schedule media and analysis jobs independently. -> Promise.allSettled() so a failure to enqueue one type doesn't prevent attempting the other type.
   const [mediaResult, analysisResult] = await Promise.allSettled([
     enqueueMediaProcessingJobs(images),
     enqueueImageAnalysisJobs(images),

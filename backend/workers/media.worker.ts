@@ -9,7 +9,7 @@ import sharp from "sharp";
 import {
   recoverStuckProcessingJobs,
   recoverUnqueuedMediaJobs,
-} from "../helpers/media.helper.js";
+} from "../helpers/thumbnail.helper.js";
 import { mediaStorageDir, mediaThumbnailDir } from "../config/media-storage.js";
 /* One important operational point: Keep the worker running in its own terminal. Your Express server and worker will be separate running processes.
  */
