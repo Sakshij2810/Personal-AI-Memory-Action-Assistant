@@ -6,7 +6,7 @@ import Dashboard from "./views/Dashboard/Dashboard";
 import UploadImages from "./views/MediaUploads/UploadImages";
 import ImageGallery from "./views/Storage/ImageGallery";
 import { REACT_APP_NAV_ROUTES } from "./Router/AppNavigation";
-import { useCurrentUser } from "./hooks/useUser";
+import { useCurrentUser } from "./hooks/useAuth";
 import PageLayout from "./Layouts/PageLayout";
 
 function App() {

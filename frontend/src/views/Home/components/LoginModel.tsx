@@ -1,38 +1,33 @@
 import { FiX } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 import { motion } from "motion/react";
-import { signInWithPopup } from "firebase/auth";
-import axios from "axios";
 import { toast } from "sonner";
-
-import { auth, provider } from "../../../utils/firebase";
-import api from "../../../utils/axios";
-import { server_base_endpoints } from "../../../utils/server_base_endpoints";
-import { useQueryClient } from "@tanstack/react-query";
+import { useGoogleLogin } from "../../../hooks/useAuth";
+import axios from "axios";
 
 interface LoginModelProps {
   onClose: () => void;
 }
 
 const LoginModel = ({ onClose }: LoginModelProps) => {
-  const queryClient = useQueryClient();
-  const handleGoogleAuth = async () => {
-    try {
-      const result = await signInWithPopup(auth, provider); // This opens the Google login popup and returns the authenticated user's information.
-      const token = await result.user.getIdToken(); // The token is used to prove to the backend that the user has been authenticated by Firebase.
+  const { mutate: googleLogin, isPending } = useGoogleLogin();
 
-      const res = await api.post(server_base_endpoints.auth.login, { token });
+  const handleGoogleAuth = () => {
+    googleLogin(undefined, {
+      onSuccess: () => {
+        onClose();
+      },
 
-      queryClient.setQueryData(["current-user"], res.data);
-      onClose();
-    } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
-        toast.error(error.response?.data?.message || "Error while login.");
-      } else {
-        toast.error("Something went wrong.");
-      }
-    }
+      onError: (error) => {
+        toast.error(
+          axios.isAxiosError(error)
+            ? error.response?.data?.message || "Error while login."
+            : "Something went wrong.",
+        );
+      },
+    });
   };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md px-4">
       <div
@@ -74,7 +69,7 @@ const LoginModel = ({ onClose }: LoginModelProps) => {
             >
               <FcGoogle size={18} />
               <span className="text-white font-medium text-sm">
-                Continue with Google
+                {isPending ? "Signing in..." : "Continue with Google"}
               </span>
             </motion.button>
           </div>

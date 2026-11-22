@@ -10,12 +10,10 @@ import {
 
 import { toast } from "sonner";
 
-import api from "../../../utils/axios";
-import { server_base_endpoints } from "../../../utils/server_base_endpoints";
-
-import type { MultipleUploadImageResponse, SelectedImage } from "../types";
+import type { SelectedImage } from "../types";
 import CustomFileInputField from "../../../components/form/CustomFileInputField";
 import CustomButton from "../../../components/form/Button";
+import { useUploadImages } from "../../../hooks/useUploadImages";
 
 interface UploadImageFormProps {
   selectedImages: SelectedImage[];
@@ -28,7 +26,9 @@ const UploadImageForm = ({
   onFilesSelected,
   onUploadSuccess,
 }: UploadImageFormProps) => {
-  const [isUploading, setIsUploading] = useState(false);
+  const { mutate: uploadImagesMutation, isPending: isUploading } =
+    useUploadImages();
+
   const [isDragging, setIsDragging] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -74,52 +74,42 @@ One important point: We clear the file input's selection, not the file stored in
   };
 
   // Upload selected images to the backend.
-  const handleUpload = async () => {
+  const handleUpload = () => {
     if (selectedImages.length === 0) {
       toast.warning("Please select at least one image.");
       return;
     }
 
-    try {
-      setIsUploading(true);
+    const formData = new FormData();
 
-      const formData = new FormData();
+    selectedImages.forEach(({ file }) => {
+      formData.append("images", file);
+    });
 
-      selectedImages.forEach(({ file }) => {
-        formData.append("images", file);
-        /*
-images → photo1.jpg
-images → photo2.png
-images → photo3.webp
-         */
-      });
+    uploadImagesMutation(formData, {
+      onSuccess: (data) => {
+        if (data.success && data.images?.length) {
+          toast.success(data.message);
 
-      const res = await api.post<MultipleUploadImageResponse>(
-        server_base_endpoints.media.upload_multiple_img,
-        formData,
-      );
+          // Current backend behavior assumes all selected images were uploaded.
+          onUploadSuccess(selectedImages.map((image) => image.id));
+        } else {
+          toast.error(data.message || "Image upload failed.");
+        }
+      },
 
-      if (res.data.success && res.data.images?.length) {
-        toast.success(res.data.message);
+      onError: (error) => {
+        console.error("Image upload error:", error);
 
-        // Current API behavior assumes all selected images were uploaded.
-        onUploadSuccess(selectedImages.map((image) => image.id));
-      } else {
-        toast.error(res.data.message || "Image upload failed.");
-      }
-    } catch (error: unknown) {
-      console.error("Image upload error:", error);
-
-      if (axios.isAxiosError(error)) {
-        toast.error(
-          error.response?.data?.message || "Error while uploading images.",
-        );
-      } else {
-        toast.error("Something went wrong.");
-      }
-    } finally {
-      setIsUploading(false);
-    }
+        if (axios.isAxiosError(error)) {
+          toast.error(
+            error.response?.data?.message || "Error while uploading images.",
+          );
+        } else {
+          toast.error("Something went wrong.");
+        }
+      },
+    });
   };
 
   // Handle drag-and-drop events.
@@ -228,7 +218,7 @@ images → photo3.webp
           type="button"
           variant="primary"
           size="lg"
-          disabled={selectedImages.length === 0}
+          disabled={selectedImages.length === 0 || isUploading}
           isLoading={isUploading}
           loadingText="Uploading..."
           onClick={handleUpload}

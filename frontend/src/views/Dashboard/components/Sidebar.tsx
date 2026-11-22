@@ -8,18 +8,17 @@ import type { User } from "../../../types/user";
 import { useNavigate } from "react-router-dom";
 import { FaCirclePlus } from "react-icons/fa6";
 import { NAV_ITEMS, STORAGE_ITEMS } from "../types";
-import { server_base_endpoints } from "../../../utils/server_base_endpoints";
-import api from "../../../utils/axios";
 import axios from "axios";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
+import { useLogout } from "../../../hooks/useAuth";
 
 export interface SidebarProps {
   user: User;
 }
 
 const Sidebar = ({ user }: SidebarProps) => {
-  const queryClient = useQueryClient();
+  const { mutate: logout, isPending: isLoggingOut } = useLogout();
+
   const navigate = useNavigate();
   const avatar = user?.display_name
     ? user.display_name
@@ -34,20 +33,24 @@ const Sidebar = ({ user }: SidebarProps) => {
   const [mobileOpen, setMobileOpen] = useState<boolean>(false);
 
   // handle Logout
-  const handleLogout = async () => {
-    try {
-      const res = await api.post(server_base_endpoints.auth.logout);
-      if (res?.data?.success) {
-        queryClient.setQueryData(["current-user"], null);
-        navigate("/");
-      }
-    } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
-        toast.error(error.response?.data?.message || "Error while logout.");
-      } else {
-        toast.error("Something went wrong.");
-      }
-    }
+  const handleLogout = () => {
+    logout(undefined, {
+      onSuccess: (data) => {
+        if (data?.success) {
+          navigate("/");
+        } else {
+          toast.error("Unable to logout. Please try again.");
+        }
+      },
+
+      onError: (error) => {
+        toast.error(
+          axios.isAxiosError(error)
+            ? error.response?.data?.message || "Error while logout."
+            : "Something went wrong.",
+        );
+      },
+    });
   };
 
   const inner = (
@@ -274,6 +277,7 @@ const Sidebar = ({ user }: SidebarProps) => {
             {sidebarOpen && (
               <motion.button
                 onClick={handleLogout}
+                disabled={isLoggingOut}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
