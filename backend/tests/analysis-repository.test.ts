@@ -1,4 +1,4 @@
-// backend/tests/analysis.repository.test.ts
+// backend/tests/analysis-repository.test.ts
 
 import {
   afterAll,
@@ -39,7 +39,6 @@ describe("Analysis repository integration tests", () => {
       );
     }
 
-    // Confirm that the configured test database is correct.
     if (!env.DATABASE_URL.includes("memora_ai_test")) {
       throw new Error("Unsafe DATABASE_URL. Expected memora_ai_test.");
     }
@@ -52,7 +51,6 @@ describe("Analysis repository integration tests", () => {
   beforeEach(async () => {
     const firebaseUid = `analysis-test-${crypto.randomUUID()}`;
 
-    // Create a test user.
     const userResult = await pool.query(
       `
       INSERT INTO users (
@@ -68,7 +66,6 @@ describe("Analysis repository integration tests", () => {
 
     userId = userResult.rows[0].id;
 
-    // Create a test media record.
     const mediaResult = await pool.query(
       `
       INSERT INTO media_files (
@@ -98,8 +95,6 @@ describe("Analysis repository integration tests", () => {
   // ==================================================
 
   afterEach(async () => {
-    // Deleting the user also deletes media_files
-    // and media_analysis through ON DELETE CASCADE.
     await pool.query("DELETE FROM users WHERE id = $1", [userId]);
   });
 
@@ -140,10 +135,8 @@ describe("Analysis repository integration tests", () => {
       "gemini-3.5-flash-lite",
     );
 
-    // Change the existing record's status.
     await updateAnalysisStatus(mediaId, "processing");
 
-    // Attempt to create the same record again.
     const secondRecord = await createAnalysisRecord(
       mediaId,
       "gemini",
@@ -167,7 +160,44 @@ describe("Analysis repository integration tests", () => {
   });
 
   // ==================================================
-  // TEST 3: UPDATE ANALYSIS STATUS
+  // TEST 3: REUSE FAILED ANALYSIS RECORD
+  // ==================================================
+
+  it("reuses an existing failed analysis record without creating duplicates", async () => {
+    const firstRecord = await createAnalysisRecord(
+      mediaId,
+      "gemini",
+      "gemini-3.5-flash-lite",
+    );
+
+    await updateAnalysisStatus(mediaId, "processing");
+
+    await updateAnalysisStatus(mediaId, "failed", "Gemini request failed");
+
+    const reusedRecord = await createAnalysisRecord(
+      mediaId,
+      "gemini",
+      "gemini-3.5-flash-lite",
+    );
+
+    expect(reusedRecord.id).toBe(firstRecord.id);
+    expect(reusedRecord.status).toBe("failed");
+    expect(reusedRecord.attempt_count).toBe(1);
+
+    const countResult = await pool.query(
+      `
+      SELECT COUNT(*)::int AS count
+      FROM media_analysis
+      WHERE media_file_id = $1
+      `,
+      [mediaId],
+    );
+
+    expect(countResult.rows[0].count).toBe(1);
+  });
+
+  // ==================================================
+  // TEST 4: UPDATE ANALYSIS STATUS
   // ==================================================
 
   it("updates analysis status and increments attempt count", async () => {
@@ -192,7 +222,7 @@ describe("Analysis repository integration tests", () => {
   });
 
   // ==================================================
-  // TEST 4: SAVE ANALYSIS RESULT
+  // TEST 5: SAVE ANALYSIS RESULT
   // ==================================================
 
   it("saves the AI description and labels successfully", async () => {
@@ -201,14 +231,8 @@ describe("Analysis repository integration tests", () => {
     const analysis = {
       description: "People in traditional clothing celebrating outdoors.",
       labels: [
-        {
-          name: "wedding",
-          confidence: 0.95,
-        },
-        {
-          name: "outdoor",
-          confidence: 0.9,
-        },
+        { name: "wedding", confidence: 0.95 },
+        { name: "outdoor", confidence: 0.9 },
       ],
     };
 
@@ -230,7 +254,48 @@ describe("Analysis repository integration tests", () => {
   });
 
   // ==================================================
-  // TEST 5: GET ANALYSIS BY MEDIA ID
+  // TEST 6: SAVE RESULT AFTER PREVIOUS FAILURE
+  // ==================================================
+
+  it("clears the previous error when a later analysis succeeds", async () => {
+    await createAnalysisRecord(mediaId, "gemini", "gemini-3.5-flash-lite");
+
+    await updateAnalysisStatus(mediaId, "processing");
+
+    await updateAnalysisStatus(
+      mediaId,
+      "failed",
+      "Previous Gemini request failed",
+    );
+
+    // Simulate a later successful reprocessing attempt.
+    await updateAnalysisStatus(mediaId, "processing");
+
+    const analysis = {
+      description: "A family celebration outdoors.",
+      labels: [
+        { name: "family", confidence: 0.95 },
+        { name: "celebration", confidence: 0.9 },
+      ],
+    };
+
+    const record = await updateAnalysisResult(
+      mediaId,
+      analysis,
+      "gemini",
+      "gemini-3.5-flash-lite",
+    );
+
+    expect(record).not.toBeNull();
+    expect(record?.status).toBe("completed");
+    expect(record?.description).toBe(analysis.description);
+    expect(record?.labels).toEqual(analysis.labels);
+    expect(record?.attempt_count).toBe(2);
+    expect(record?.error_message).toBeNull();
+  });
+
+  // ==================================================
+  // TEST 7: GET ANALYSIS BY MEDIA ID
   // ==================================================
 
   it("retrieves an analysis record using its media ID", async () => {
@@ -244,7 +309,7 @@ describe("Analysis repository integration tests", () => {
   });
 
   // ==================================================
-  // TEST 6: NON-EXISTENT RECORD
+  // TEST 8: NON-EXISTENT RECORD
   // ==================================================
 
   it("returns null when an analysis record does not exist", async () => {
@@ -254,7 +319,7 @@ describe("Analysis repository integration tests", () => {
   });
 
   // ==================================================
-  // TEST 7: UPDATE NON-EXISTENT RECORD
+  // TEST 9: UPDATE NON-EXISTENT RECORD
   // ==================================================
 
   it("returns null when updating a non-existent analysis record", async () => {

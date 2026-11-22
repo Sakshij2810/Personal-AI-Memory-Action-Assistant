@@ -1,3 +1,4 @@
+// backend/queues/analysis.queue.ts
 import { Queue } from "bullmq";
 
 import bullmqRedis from "../shared/redis/bullmq-connection.js";

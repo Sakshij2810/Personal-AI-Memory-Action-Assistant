@@ -1,3 +1,5 @@
+// backend/controllers/media.controller.ts
+
 import { type Request, type Response } from "express";
 import fs from "node:fs/promises";
 import pool from "../config/db.js";
@@ -8,6 +10,7 @@ import {
 } from "../helpers/media.helper.js";
 import { mediaStorageDir, mediaThumbnailDir } from "../config/media-storage.js";
 import { getAnalysisByMediaId } from "../services/ai/analysis.repository.js";
+import { enqueueImageAnalysisJobs } from "../helpers/analysis.helper.js";
 
 // -------------------------------------------------------------------------- Controllers --------------------------------------------------------------------------
 
@@ -39,29 +42,40 @@ export const uploadSingleImage = async (req: Request, res: Response) => {
     });
   }
 
-  // 2. Add the image to BullMQ.
-  try {
-    await enqueueMediaProcessingJobs(images);
+  // 2. Schedule both independent jobs.
+  const [mediaResult, analysisResult] = await Promise.allSettled([
+    enqueueMediaProcessingJobs(images),
+    enqueueImageAnalysisJobs(images),
+  ]);
 
-    return res.status(201).json({
-      success: true,
-      message: "Image uploaded and queued for processing.",
-      processingQueued: true,
-      image: images[0],
-    });
-  } catch (error: unknown) {
-    console.error("Failed to enqueue image processing job:", error);
+  const mediaQueued = mediaResult.status === "fulfilled";
+  const analysisQueued = analysisResult.status === "fulfilled";
 
-    // Image and database record are already saved.
-    // Do not delete the original file.
-
-    return res.status(201).json({
-      success: true,
-      message: "Image uploaded, but processing could not be queued.",
-      processingQueued: false,
-      image: images[0],
-    });
+  if (!mediaQueued) {
+    console.error(
+      "Failed to enqueue media processing job:",
+      mediaResult.reason,
+    );
   }
+
+  if (!analysisQueued) {
+    console.error(
+      "Failed to enqueue image analysis job:",
+      analysisResult.reason,
+    );
+  }
+
+  // 3. Return the scheduling results.
+  return res.status(201).json({
+    success: true,
+    message: "Image uploaded successfully.",
+    processing: {
+      mediaQueued,
+      analysisQueued,
+    },
+    processingQueued: mediaQueued && analysisQueued,
+    image: images[0],
+  });
 };
 
 // Multiple image upload
@@ -94,32 +108,47 @@ export const uploadMultipleImages = async (req: Request, res: Response) => {
     });
   }
 
-  // 2. Add one processing job per image.
-  try {
-    const jobs = await enqueueMediaProcessingJobs(images);
+  // 2. Schedule media and analysis jobs independently.
+  const [mediaResult, analysisResult] = await Promise.allSettled([
+    enqueueMediaProcessingJobs(images),
+    enqueueImageAnalysisJobs(images),
+  ]);
 
-    return res.status(201).json({
-      success: true,
-      message: `${images.length} images uploaded and queued for processing.`,
-      count: images.length,
-      processingQueued: true,
-      jobsQueued: jobs.length,
-      images,
-    });
-  } catch (error: unknown) {
-    console.error("Failed to enqueue image processing jobs:", error);
+  const mediaJobsQueued =
+    mediaResult.status === "fulfilled" ? mediaResult.value.length : 0;
 
-    // Database records and original files are already saved.
-    // Do not delete them.
+  const analysisJobsQueued =
+    analysisResult.status === "fulfilled" ? analysisResult.value.length : 0;
 
-    return res.status(201).json({
-      success: true,
-      message: "Images uploaded, but processing could not be queued.",
-      count: images.length,
-      processingQueued: false,
-      images,
-    });
+  if (mediaResult.status === "rejected") {
+    console.error(
+      "Failed to enqueue media processing jobs:",
+      mediaResult.reason,
+    );
   }
+
+  if (analysisResult.status === "rejected") {
+    console.error(
+      "Failed to enqueue image analysis jobs:",
+      analysisResult.reason,
+    );
+  }
+
+  // 3. Return independent scheduling results.
+  return res.status(201).json({
+    success: true,
+    message: "Images uploaded successfully.",
+    count: images.length,
+    processing: {
+      mediaQueued: mediaJobsQueued === images.length,
+      analysisQueued: analysisJobsQueued === images.length,
+      mediaJobsQueued,
+      analysisJobsQueued,
+    },
+    processingQueued:
+      mediaJobsQueued === images.length && analysisJobsQueued === images.length,
+    images,
+  });
 };
 
 // get User Images

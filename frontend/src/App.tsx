@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 
 import Home from "./views/Home/Home";
@@ -12,10 +12,12 @@ import PageLayout from "./Layouts/PageLayout";
 function App() {
   const { data, isPending, isError } = useCurrentUser();
 
+  const location = useLocation();
+
   // Our API response contains { user: ... }
   const user = data?.user ?? null;
 
-  if (isError) {
+  if (isError && location.pathname !== "/") {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-red-500">

@@ -1,3 +1,5 @@
+// backend/workers/media.worker.ts
+
 import { Worker } from "bullmq";
 import bullmqRedis from "../shared/redis/bullmq-connection.js";
 import pool from "../config/db.js";
@@ -5,7 +7,6 @@ import path from "node:path";
 import { mkdir } from "node:fs/promises";
 import sharp from "sharp";
 import {
-  enqueueImageAnalysisJob,
   recoverStuckProcessingJobs,
   recoverUnqueuedMediaJobs,
 } from "../helpers/media.helper.js";
@@ -107,20 +108,6 @@ export const mediaWorker = new Worker(
       await unlink(thumbnailPath).catch(() => {});
       console.log(`Media ${mediaId} was deleted during processing.`);
       return { success: true, skipped: true, mediaId };
-    }
-
-    // 7. Enqueue independent image-analysis job.
-    try {
-      await enqueueImageAnalysisJob(mediaId, userId);
-
-      console.log(`Image analysis queued for media: ${mediaId}`);
-    } catch (error) {
-      // Thumbnail processing has already succeeded.
-      // Do not fail the thumbnail job because analysis enqueueing failed.
-      console.error(
-        `Failed to enqueue image analysis for media ${mediaId}:`,
-        error,
-      );
     }
 
     console.log(`Media ${mediaId} processed successfully!`);

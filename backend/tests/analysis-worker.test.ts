@@ -1,3 +1,5 @@
+// backend/tests/analysis-worker.test.ts
+
 import {
   afterAll,
   afterEach,
@@ -30,6 +32,7 @@ vi.mock("../services/ai/ai.service.js", () => ({
 }));
 
 import { aiService } from "../services/ai/ai.service.js";
+
 import {
   analysisWorker,
   closeAnalysisWorker,
@@ -110,7 +113,6 @@ describe("Image analysis worker integration tests", () => {
   // ==================================================
 
   afterEach(async () => {
-    // Restore mocked functions before filesystem/database cleanup.
     vi.restoreAllMocks();
 
     const result = await pool.query(
@@ -163,6 +165,7 @@ describe("Image analysis worker integration tests", () => {
 
   const createUploadedMedia = async () => {
     const storageKey = `${crypto.randomUUID()}.png`;
+
     const originalPath = path.join(mediaStorageDir, storageKey);
 
     const imageBuffer = await sharp({
@@ -303,7 +306,59 @@ describe("Image analysis worker integration tests", () => {
   });
 
   // ==================================================
-  // TEST 2: IDEMPOTENCY
+  // TEST 2: ANALYSIS INDEPENDENT OF THUMBNAIL PROCESSING
+  // ==================================================
+
+  it("analyses the original image even when thumbnail processing has failed", async () => {
+    const { mediaId, originalPath } = await createUploadedMedia();
+
+    // Simulate thumbnail generation failure.
+    await pool.query(
+      `
+      UPDATE media_files
+      SET processing_status = 'failed'
+      WHERE id = $1 AND user_id = $2
+      `,
+      [mediaId, userId],
+    );
+
+    vi.mocked(aiService.analyzeImage).mockResolvedValue(mockAnalysis);
+
+    await enqueueJob(mediaId);
+
+    await waitForJobState(`analysis-${mediaId}`, "completed");
+
+    // Analysis must still run successfully.
+    expect(aiService.analyzeImage).toHaveBeenCalledTimes(1);
+
+    const aiInput = vi.mocked(aiService.analyzeImage).mock.calls[0][0];
+
+    expect(aiInput.mimeType).toBe("image/png");
+    expect(Buffer.isBuffer(aiInput.imageBuffer)).toBe(true);
+
+    // The original image must still exist.
+    await expect(fs.access(originalPath)).resolves.toBeUndefined();
+
+    const result = await pool.query(
+      `
+      SELECT
+        status,
+        description,
+        labels
+      FROM media_analysis
+      WHERE media_file_id = $1
+      `,
+      [mediaId],
+    );
+
+    expect(result.rowCount).toBe(1);
+    expect(result.rows[0].status).toBe("completed");
+    expect(result.rows[0].description).toBe(mockAnalysis.description);
+    expect(result.rows[0].labels).toEqual(mockAnalysis.labels);
+  });
+
+  // ==================================================
+  // TEST 3: IDEMPOTENCY
   // ==================================================
 
   it("reuses the existing analysis record when the same media is processed again", async () => {
@@ -350,7 +405,7 @@ describe("Image analysis worker integration tests", () => {
   });
 
   // ==================================================
-  // TEST 3: RETRIES AND PERMANENT FAILURE
+  // TEST 4: RETRIES AND PERMANENT FAILURE
   // ==================================================
 
   it("retries failed AI requests and marks analysis as failed after all attempts", async () => {
@@ -405,7 +460,7 @@ describe("Image analysis worker integration tests", () => {
   });
 
   // ==================================================
-  // TEST 4: MEDIA DELETED BEFORE PROCESSING
+  // TEST 5: MEDIA DELETED BEFORE PROCESSING
   // ==================================================
 
   it("skips the analysis job when the media record has been deleted", async () => {

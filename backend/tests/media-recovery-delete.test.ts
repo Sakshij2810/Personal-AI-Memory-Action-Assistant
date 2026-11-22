@@ -1,3 +1,5 @@
+// backend/tests/media-recorvery-delete.test.ts
+
 import {
   beforeAll,
   afterAll,
@@ -76,7 +78,7 @@ describe("Media recovery and deletion integration tests", () => {
       [
         id,
         userId,
-        storageKey,
+        "recovery-delete-test.png",
         storageKey,
         "image/png",
         1000,

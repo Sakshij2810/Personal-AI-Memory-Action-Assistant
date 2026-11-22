@@ -1,5 +1,6 @@
+// backend/helper/media.helper.ts
+
 import pool from "../config/db.js";
-import imageAnalysisQueue from "../queues/analysis.queue.js";
 import mediaProcessingQueue from "../queues/media.queue.js";
 import { UploadedImage } from "../types/types.js";
 
@@ -227,23 +228,4 @@ export const recoverStuckProcessingJobs = async () => {
       );
     }
   }
-};
-
-// -------------------------------------------------------------------------- Image queue / workers Helpers --------------------------------------------------------------------------
-
-// Enqueue independent image-analysis jobs.
-export const enqueueImageAnalysisJob = async (
-  mediaId: string,
-  userId: string,
-) => {
-  return imageAnalysisQueue.add(
-    "analyze-image",
-    {
-      mediaId,
-      userId,
-    },
-    {
-      jobId: `analysis-${mediaId}`,
-    },
-  );
 };

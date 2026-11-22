@@ -1,3 +1,5 @@
+// backend/tests/media-analysis.test.ts
+
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import request from "supertest";
@@ -54,7 +56,10 @@ describe("GET /api/v1/media/:id/analysis integration tests", () => {
     );
   };
 
-  const createMediaRecord = async (ownerId: string = userId) => {
+  const createMediaRecord = async (
+    ownerId: string = userId,
+    processingStatus: string = "completed",
+  ) => {
     const storageKey = `${crypto.randomUUID()}.jpg`;
 
     const result = await pool.query(
@@ -78,7 +83,7 @@ describe("GET /api/v1/media/:id/analysis integration tests", () => {
         "image/jpeg",
         1024,
         "uploaded",
-        "completed",
+        processingStatus,
       ],
     );
 
@@ -313,7 +318,7 @@ describe("GET /api/v1/media/:id/analysis integration tests", () => {
   });
 
   // ==================================================
-  // TEST 7: FAILED STATUS
+  // TEST 7: FAILED ANALYSIS STATUS
   // ==================================================
 
   it("returns failure details when image analysis fails", async () => {
@@ -343,7 +348,50 @@ describe("GET /api/v1/media/:id/analysis integration tests", () => {
   });
 
   // ==================================================
-  // TEST 8: RESPONSE DOES NOT EXPOSE INTERNAL FIELDS
+  // TEST 8: ANALYSIS INDEPENDENT OF THUMBNAIL STATUS
+  // ==================================================
+
+  it("returns completed analysis even when thumbnail processing has failed", async () => {
+    const mediaId = await createMediaRecord(userId, "failed");
+
+    await createAnalysisRecord(mediaId, "gemini", "gemini-3.5-flash-lite");
+
+    await updateAnalysisStatus(mediaId, "processing");
+
+    const mockAnalysis = {
+      description: "A family celebration outdoors.",
+      labels: [
+        { name: "family", confidence: 0.95 },
+        { name: "celebration", confidence: 0.9 },
+      ],
+    };
+
+    await updateAnalysisResult(
+      mediaId,
+      mockAnalysis,
+      "gemini",
+      "gemini-3.5-flash-lite",
+    );
+
+    const response = await request(app)
+      .get(`/api/v1/media/${mediaId}/analysis`)
+      .set("Cookie", `session=${sessionId}`);
+
+    expect(response.status).toBe(200);
+
+    expect(response.body.analysis).toMatchObject({
+      status: "completed",
+      description: mockAnalysis.description,
+      labels: mockAnalysis.labels,
+      provider: "gemini",
+      model: "gemini-3.5-flash-lite",
+      attemptCount: 1,
+      errorMessage: null,
+    });
+  });
+
+  // ==================================================
+  // TEST 9: RESPONSE PRIVACY
   // ==================================================
 
   it("does not expose internal database identifiers or timestamps", async () => {

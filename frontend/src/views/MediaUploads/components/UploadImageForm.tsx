@@ -87,6 +87,11 @@ One important point: We clear the file input's selection, not the file stored in
 
       selectedImages.forEach(({ file }) => {
         formData.append("images", file);
+        /*
+images → photo1.jpg
+images → photo2.png
+images → photo3.webp
+         */
       });
 
       const res = await api.post<MultipleUploadImageResponse>(
