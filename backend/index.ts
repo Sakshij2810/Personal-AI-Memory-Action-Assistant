@@ -18,14 +18,14 @@ async function startServer() {
 
   console.log("PostgreSQL connected successfully!");
 
-  // // Start all background workers.
-  // await Promise.all([
-  //   import("./workers/media.worker.js"),
-  //   import("./workers/analysis.worker.js"),
-  //   import("./workers/face.worker.js"),
-  // ]);
+  // Start all background workers.
+  await Promise.all([
+    import("./workers/media.worker.js"),
+    import("./workers/analysis.worker.js"),
+    import("./workers/face.worker.js"),
+  ]);
 
-  // console.log("All background workers initialized.");
+  console.log("All background workers initialized.");
 
   app.listen(PORT, () => {
     console.log(`Server is running on PORT ${PORT}`);

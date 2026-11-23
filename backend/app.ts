@@ -10,6 +10,7 @@ import authRouter from "./routes/auth.routes.js";
 import mediaRouter from "./routes/media.routes.js";
 import { isAuth } from "./middleware/isAuth.js";
 import { env } from "./lib/env.js";
+import faceRouter from "./routes/face.routes.js";
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/media", isAuth, mediaRouter);
+app.use("/api/v1/faces", isAuth, faceRouter);
 
 // Centralized error handling
 const errorHandler: ErrorRequestHandler = (err, req, res, next) => {

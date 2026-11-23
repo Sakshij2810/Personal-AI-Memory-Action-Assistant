@@ -162,3 +162,33 @@ SELECT * FROM media_files;
 SELECT * FROM users;
 
 
+SELECT
+    mf.id AS media_id,
+    mf.filename,
+    mf.face_processing_status,
+    COUNT(df.id) AS detected_faces
+FROM media_files mf
+LEFT JOIN detected_faces df
+    ON df.media_file_id = mf.id
+WHERE mf.id IN (
+    '77f3b707-1c70-4a21-a9cd-301cac19c5d9',
+    'f7dfa897-952c-4779-890d-7dcbee4c4f70',
+    'e7d87ebe-b77e-4168-a51c-fde3345f4868'
+)
+GROUP BY mf.id, mf.filename, mf.face_processing_status;
+
+
+SELECT
+    df.id AS face_id,
+    mf.filename,
+    df.face_number,
+    vector_dims(df.embedding) AS embedding_dimensions
+FROM detected_faces df
+JOIN media_files mf
+    ON mf.id = df.media_file_id
+WHERE mf.id IN (
+    '77f3b707-1c70-4a21-a9cd-301cac19c5d9',
+    'f7dfa897-952c-4779-890d-7dcbee4c4f70',
+    'e7d87ebe-b77e-4168-a51c-fde3345f4868'
+)
+ORDER BY mf.filename, df.face_number;
