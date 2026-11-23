@@ -31,6 +31,9 @@ const envSchema = z.object({
   GEMINI_API_NAME: z.string().default("MemoraAI"),
   GEMINI_API_PROJECT_NAME: z.string().optional(),
   GEMINI_API_PROJECT_NUMBER: z.string().optional(),
+
+  // Python face service
+  FACE_SERVICE_URL: z.string().url().default("http://127.0.0.1:8000"),
 });
 
 export const env = envSchema.parse(process.env);

@@ -9,6 +9,7 @@ import { enqueueMediaProcessingJobs } from "../helpers/thumbnail.helper.js";
 import { mediaStorageDir, mediaThumbnailDir } from "../config/media-storage.js";
 import { getAnalysisByMediaId } from "../services/ai/analysis.repository.js";
 import { enqueueImageAnalysisJobs } from "../helpers/analysis.helper.js";
+import { enqueueFaceProcessingJobs } from "../helpers/face.helper.js";
 
 // -------------------------------------------------------------------------- Controllers --------------------------------------------------------------------------
 
@@ -40,14 +41,16 @@ export const uploadSingleImage = async (req: Request, res: Response) => {
     });
   }
 
-  // 2. Schedule both independent jobs.
-  const [mediaResult, analysisResult] = await Promise.allSettled([
+  // 2. Schedule all three independent processing jobs.
+  const [mediaResult, analysisResult, faceResult] = await Promise.allSettled([
     enqueueMediaProcessingJobs(images),
     enqueueImageAnalysisJobs(images),
+    enqueueFaceProcessingJobs(images),
   ]);
 
   const mediaQueued = mediaResult.status === "fulfilled";
   const analysisQueued = analysisResult.status === "fulfilled";
+  const faceQueued = faceResult.status === "fulfilled";
 
   if (!mediaQueued) {
     console.error(
@@ -63,6 +66,10 @@ export const uploadSingleImage = async (req: Request, res: Response) => {
     );
   }
 
+  if (!faceQueued) {
+    console.error("Failed to enqueue face processing job:", faceResult.reason);
+  }
+
   // 3. Return the scheduling results.
   return res.status(201).json({
     success: true,
@@ -70,8 +77,9 @@ export const uploadSingleImage = async (req: Request, res: Response) => {
     processing: {
       mediaQueued,
       analysisQueued,
+      faceQueued,
     },
-    processingQueued: mediaQueued && analysisQueued,
+    processingQueued: mediaQueued && analysisQueued && faceQueued,
     image: images[0],
   });
 };
@@ -106,10 +114,11 @@ export const uploadMultipleImages = async (req: Request, res: Response) => {
     });
   }
 
-  // 2. Schedule media and analysis jobs independently. -> Promise.allSettled() so a failure to enqueue one type doesn't prevent attempting the other type.
-  const [mediaResult, analysisResult] = await Promise.allSettled([
+  // 2. Schedule all three independent processing pipelines. -> Promise.allSettled() so a failure to enqueue one type doesn't prevent attempting the other type.
+  const [mediaResult, analysisResult, faceResult] = await Promise.allSettled([
     enqueueMediaProcessingJobs(images),
     enqueueImageAnalysisJobs(images),
+    enqueueFaceProcessingJobs(images),
   ]);
 
   const mediaJobsQueued =
@@ -117,6 +126,9 @@ export const uploadMultipleImages = async (req: Request, res: Response) => {
 
   const analysisJobsQueued =
     analysisResult.status === "fulfilled" ? analysisResult.value.length : 0;
+
+  const faceJobsQueued =
+    faceResult.status === "fulfilled" ? faceResult.value.length : 0;
 
   if (mediaResult.status === "rejected") {
     console.error(
@@ -132,6 +144,10 @@ export const uploadMultipleImages = async (req: Request, res: Response) => {
     );
   }
 
+  if (faceResult.status === "rejected") {
+    console.error("Failed to enqueue face processing jobs:", faceResult.reason);
+  }
+
   // 3. Return independent scheduling results.
   return res.status(201).json({
     success: true,
@@ -140,11 +156,15 @@ export const uploadMultipleImages = async (req: Request, res: Response) => {
     processing: {
       mediaQueued: mediaJobsQueued === images.length,
       analysisQueued: analysisJobsQueued === images.length,
+      faceQueued: faceJobsQueued === images.length,
       mediaJobsQueued,
       analysisJobsQueued,
+      faceJobsQueued,
     },
     processingQueued:
-      mediaJobsQueued === images.length && analysisJobsQueued === images.length,
+      mediaJobsQueued === images.length &&
+      analysisJobsQueued === images.length &&
+      faceJobsQueued === images.length,
     images,
   });
 };

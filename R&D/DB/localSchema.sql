@@ -146,3 +146,19 @@ WHERE typname = 'analysis_status';
 SELECT indexname, indexdef
 FROM pg_indexes
 WHERE tablename = 'media_analysis';
+
+
+SELECT
+    extname,
+    extversion
+FROM pg_extension
+WHERE extname = 'vector';
+
+
+
+SELECT * FROM detected_faces;
+SELECT * FROM media_analysis;
+SELECT * FROM media_files;
+SELECT * FROM users;
+
+

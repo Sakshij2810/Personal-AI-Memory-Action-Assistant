@@ -32,9 +32,6 @@ app.get("/", (req, res) => {
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/media", isAuth, mediaRouter);
 
-app.use("/api/v1/auth", authRouter);
-app.use("/api/v1/media", isAuth, mediaRouter);
-
 // Centralized error handling
 const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
   console.error("Request error:", err);
