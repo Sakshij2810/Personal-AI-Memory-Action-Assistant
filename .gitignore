@@ -1,29 +1,91 @@
 
-# Dependencies
+# ==========================================
+# Node.js dependencies
+# ==========================================
 node_modules/
 
-# Environment variables and secrets
-.env
-.env.*
-!.env.example
-.test-storage/
-
-# Build output
+# Node.js build output
 dist/
 build/
 
-# Uploaded files and local storage
-uploads/
-storage/
-
-# Logs
-*.log
+# Node.js logs
 npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
 
+
+# ==========================================
+# Environment variables and secrets
+# ==========================================
+.env
+.env.*
+!.env.example
+
+# Firebase service account credentials
+**/serviceAccountKey.json
+
+
+# ==========================================
+# Python virtual environments
+# ==========================================
+.venv/
+venv/
+env/
+
+
+# ==========================================
+# Python cache
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+
+
+# ==========================================
+# Python testing and tooling
+# ==========================================
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+
+# ==========================================
+# Python package and build files
+# ==========================================
+*.egg-info/
+.python-version
+
+
+# ==========================================
+# Face Service - downloaded model weights
+# ==========================================
+face-service/models/*.onnx
+
+
+# ==========================================
+# Face Service - sample and generated images
+# ==========================================
+face-service/samples/
+face-service/aligned_faces/
+
+
+# ==========================================
+# Memora AI - runtime media storage
+# ==========================================
+**/UploadMediaLocalStorage/
+**/UploadMediaThumbnails/
+
+
+# ==========================================
+# Test storage
+# ==========================================
+.test-storage/
+
+
+# ==========================================
 # OS and editor files
+# ==========================================
 .DS_Store
 .vscode/
-
-
-# Firebase account secrets
-/backend/serviceAccountKey.json
