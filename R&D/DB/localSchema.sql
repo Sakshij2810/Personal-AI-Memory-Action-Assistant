@@ -192,3 +192,28 @@ WHERE mf.id IN (
     'e7d87ebe-b77e-4168-a51c-fde3345f4868'
 )
 ORDER BY mf.filename, df.face_number;
+
+
+UPDATE media_files
+SET
+  face_processing_status = 'pending',
+  face_processing_started_at = NULL,
+  face_processing_error = NULL
+WHERE face_processing_status = 'completed';
+
+SELECT id, status, face_processing_status
+FROM media_files
+WHERE face_processing_status = 'completed';
+
+SELECT
+    COUNT(*) AS total_media,
+    COUNT(*) FILTER (
+        WHERE face_processing_status = 'pending'
+    ) AS pending,
+    COUNT(*) FILTER (
+        WHERE face_processing_status = 'completed'
+    ) AS completed,
+    COUNT(*) FILTER (
+        WHERE face_processing_status = 'failed'
+    ) AS failed
+FROM media_files;

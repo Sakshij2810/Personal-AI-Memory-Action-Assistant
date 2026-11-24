@@ -1,3 +1,5 @@
+// backend/config/media-storage.ts
+
 import path from "node:path";
 import { env } from "../lib/env.js";
 
@@ -18,4 +20,9 @@ export const mediaStorageDir = resolveStoragePath(
 export const mediaThumbnailDir = resolveStoragePath(
   "MEDIA_THUMBNAIL_DIR",
   "UploadMediaThumbnails",
+);
+
+export const faceCropStorageDir = path.resolve(
+  process.cwd(),
+  "UploadFaceCrops",
 );

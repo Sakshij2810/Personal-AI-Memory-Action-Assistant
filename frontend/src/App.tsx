@@ -1,4 +1,11 @@
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 import { Toaster } from "sonner";
 
 import Home from "./views/Home/Home";
@@ -8,11 +15,31 @@ import ImageGallery from "./views/Storage/ImageGallery";
 import { REACT_APP_NAV_ROUTES } from "./Router/AppNavigation";
 import { useCurrentUser } from "./hooks/useAuth";
 import PageLayout from "./Layouts/PageLayout";
+import PeopleRecognition from "./views/PeopleRecognition/PeopleRecognition";
+import PersonGallery from "./views/People/PersonGallery";
+import PeopleDirectory from "./views/People/PeopleDirectory";
+
+// ---------------------------- PersonGallery Route ----------------------------
+function PersonGalleryRoute() {
+  const { personId } = useParams();
+  const navigate = useNavigate();
+
+  if (!personId) {
+    return <Navigate to="/people" replace />;
+  }
+
+  return (
+    <PersonGallery personId={personId} onBack={() => navigate("/people")} />
+  );
+}
+
+// ---------------------------- App Route ----------------------------
 
 function App() {
-  const { data, isPending, isError } = useCurrentUser();
-
+  const navigate = useNavigate();
   const location = useLocation();
+
+  const { data, isPending, isError } = useCurrentUser();
 
   // Our API response contains { user: ... }
   const user = data?.user ?? null;
@@ -81,6 +108,26 @@ function App() {
             path={REACT_APP_NAV_ROUTES.image_gallery}
             element={<ImageGallery />}
           />
+          {/* ------------------- People Recognition ------------------- */}
+          <Route
+            path={REACT_APP_NAV_ROUTES.people_recognition}
+            element={<PeopleRecognition />}
+          />
+
+          {/* ------------------- People Directory ------------------- */}
+          <Route
+            path={REACT_APP_NAV_ROUTES.people_directory}
+            element={
+              <PeopleDirectory
+                onSelectPerson={(personId) => {
+                  navigate(`/people/${personId}`);
+                }}
+              />
+            }
+          />
+
+          {/* ------------------- Person Gallery Route ------------------- */}
+          <Route path="/people/:personId" element={<PersonGalleryRoute />} />
         </Route>
       </Routes>
     </>

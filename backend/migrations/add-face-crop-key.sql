@@ -1,0 +1,7 @@
+
+BEGIN;
+
+ALTER TABLE detected_faces
+ADD COLUMN IF NOT EXISTS crop_key TEXT;
+
+COMMIT;

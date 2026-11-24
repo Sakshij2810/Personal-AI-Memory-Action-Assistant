@@ -2,12 +2,7 @@ import api from "../utils/axios";
 import { server_base_endpoints } from "../utils/server_base_endpoints";
 import type { MultipleUploadImageResponse } from "../views/MediaUploads/types";
 import type { GalleryResponse } from "../views/Storage/types";
-
-export interface DeleteImageResponse {
-  success: boolean;
-  fileDeleted?: boolean;
-  message?: string;
-}
+import type { DeleteImageResponse } from "./types";
 
 // Fetch all gallery images
 export const fetchGalleryImages = async (): Promise<GalleryResponse> => {

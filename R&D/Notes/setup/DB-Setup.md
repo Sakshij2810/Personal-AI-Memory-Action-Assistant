@@ -45,3 +45,8 @@ psql -l -P pager=off
 
 12. Exit PostgreSQL terminal
     \q
+
+commands to run queries in terminal
+
+1. psql -d memora_ai
+2. psql -d memora_ai_test

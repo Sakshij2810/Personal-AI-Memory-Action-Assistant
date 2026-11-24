@@ -1,0 +1,18 @@
+        typname         | enumlabel  
+------------------------+------------
+ analysis_status        | pending
+ analysis_status        | processing
+ analysis_status        | completed
+ analysis_status        | failed
+ face_processing_status | pending
+ face_processing_status | processing
+ face_processing_status | completed
+ face_processing_status | failed
+ media_status           | uploaded
+ media_status           | failed
+ processing_status      | uploaded
+ processing_status      | processing
+ processing_status      | completed
+ processing_status      | failed
+(14 rows)
+

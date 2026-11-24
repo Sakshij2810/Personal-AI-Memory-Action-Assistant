@@ -194,3 +194,11 @@ Personal AI Memory & Action Assistant/
 - We have verified model loading. Actual face detection was tested separately using `detect_faces.py`.
 
 **Current milestone:** Python environment configured, OpenCV installed, and YuNet/SFace model loading verified.
+
+---
+
+## 8. run face service command
+
+cd face-service
+source .venv/bin/activate
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload

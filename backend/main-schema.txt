@@ -1,0 +1,49 @@
+   table_name   |          column_name          |        data_type         
+----------------+-------------------------------+--------------------------
+ detected_faces | id                            | uuid
+ detected_faces | media_file_id                 | uuid
+ detected_faces | face_number                   | integer
+ detected_faces | bounding_box                  | jsonb
+ detected_faces | detection_confidence          | real
+ detected_faces | embedding                     | USER-DEFINED
+ detected_faces | created_at                    | timestamp with time zone
+ detected_faces | crop_key                      | text
+ media_analysis | id                            | uuid
+ media_analysis | media_file_id                 | uuid
+ media_analysis | description                   | text
+ media_analysis | labels                        | jsonb
+ media_analysis | provider                      | character varying
+ media_analysis | model                         | character varying
+ media_analysis | status                        | USER-DEFINED
+ media_analysis | attempt_count                 | integer
+ media_analysis | error_message                 | text
+ media_analysis | analysis_started_at           | timestamp with time zone
+ media_analysis | analyzed_at                   | timestamp with time zone
+ media_analysis | created_at                    | timestamp with time zone
+ media_analysis | updated_at                    | timestamp with time zone
+ media_files    | id                            | uuid
+ media_files    | user_id                       | uuid
+ media_files    | filename                      | text
+ media_files    | storage_key                   | text
+ media_files    | mime_type                     | character varying
+ media_files    | file_size                     | bigint
+ media_files    | uploaded_at                   | timestamp with time zone
+ media_files    | status                        | USER-DEFINED
+ media_files    | processing_status             | USER-DEFINED
+ media_files    | thumbnail_key                 | text
+ media_files    | width                         | integer
+ media_files    | height                        | integer
+ media_files    | format                        | character varying
+ media_files    | processing_started_at         | timestamp with time zone
+ media_files    | updated_at                    | timestamp with time zone
+ media_files    | face_processing_status        | USER-DEFINED
+ media_files    | face_processing_started_at    | timestamp with time zone
+ media_files    | face_processing_attempt_count | integer
+ media_files    | face_processing_error         | text
+ users          | id                            | uuid
+ users          | firebase_uid                  | text
+ users          | email                         | character varying
+ users          | display_name                  | character varying
+ users          | created_at                    | timestamp with time zone
+(45 rows)
+

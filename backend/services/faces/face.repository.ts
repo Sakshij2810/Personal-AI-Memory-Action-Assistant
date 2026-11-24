@@ -1,79 +1,15 @@
 // backend/services/faces/face.repository.ts
 
 import pool from "../../config/db.js";
-
-export interface FaceBoundingBox {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface DetectedFaceInput {
-  faceNumber: number;
-  boundingBox: FaceBoundingBox;
-  detectionConfidence: number;
-  embedding: number[];
-}
-
-export interface SimilarFace {
-  faceId: string;
-  mediaFileId: string;
-  filename: string;
-  thumbnailKey: string | null;
-  faceNumber: number;
-  boundingBox: FaceBoundingBox;
-  detectionConfidence: number;
-  similarity: number;
-}
-
-export interface FaceSimilaritySearchResult {
-  anchorFaceId: string;
-  matches: SimilarFace[];
-}
-
-export interface FaceGroupMember {
-  faceId: string;
-  mediaFileId: string;
-  filename: string;
-  thumbnailKey: string | null;
-  faceNumber: number;
-  boundingBox: FaceBoundingBox;
-  detectionConfidence: number;
-  maxSimilarityToGroup: number;
-}
-
-export interface FaceCandidateGroup {
-  groupId: string;
-  faceCount: number;
-  photoCount: number;
-  members: FaceGroupMember[];
-}
-
-export interface FaceGroupingResult {
-  threshold: number;
-  totalFaces: number;
-  groupedFaces: number;
-  ungroupedFaces: number;
-  groupCount: number;
-  groups: FaceCandidateGroup[];
-}
-
-interface FaceRecord {
-  faceId: string;
-  mediaFileId: string;
-  filename: string;
-  thumbnailKey: string | null;
-  faceNumber: number;
-  boundingBox: FaceBoundingBox;
-  detectionConfidence: number;
-}
-
-interface FacePair {
-  faceId1: string;
-  faceId2: string;
-  similarity: number;
-}
+import {
+  DetectedFaceInput,
+  FaceCandidateGroup,
+  FaceGroupingResult,
+  FacePair,
+  FaceRecord,
+  FaceSimilaritySearchResult,
+  SimilarFace,
+} from "./types.js";
 
 export const markFaceProcessingStarted = async (mediaId: string) => {
   await pool.query(
@@ -130,21 +66,23 @@ export const saveDetectedFaces = async (
 
       await client.query(
         `
-        INSERT INTO detected_faces (
-          media_file_id,
-          face_number,
-          bounding_box,
-          detection_confidence,
-          embedding
-        )
-        VALUES ($1, $2, $3::jsonb, $4, $5::vector)
-        `,
+          INSERT INTO detected_faces (
+            media_file_id,
+            face_number,
+            bounding_box,
+            detection_confidence,
+            embedding,
+            crop_key
+          )
+          VALUES ($1, $2, $3::jsonb, $4, $5::vector, $6)
+          `,
         [
           mediaId,
           face.faceNumber,
           JSON.stringify(face.boundingBox),
           face.detectionConfidence,
           vectorValue,
+          face.cropKey,
         ],
       );
     }
@@ -290,21 +228,26 @@ export const findFaceGroups = async (
 ): Promise<FaceGroupingResult> => {
   const facesResult = await pool.query(
     `
-    SELECT
-      df.id AS face_id,
-      df.media_file_id,
-      mf.filename,
-      mf.thumbnail_key,
-      df.face_number,
-      df.bounding_box,
-      df.detection_confidence
-    FROM detected_faces df
-    INNER JOIN media_files mf
-      ON mf.id = df.media_file_id
-    WHERE mf.user_id = $1
-      AND mf.face_processing_status = 'completed'
-    ORDER BY mf.uploaded_at ASC, df.face_number ASC
-    `,
+  SELECT
+    df.id AS face_id,
+    df.media_file_id,
+    mf.filename,
+    mf.thumbnail_key,
+    df.face_number,
+    df.bounding_box,
+    df.detection_confidence
+  FROM detected_faces df
+  INNER JOIN media_files mf
+    ON mf.id = df.media_file_id
+  WHERE mf.user_id = $1
+    AND mf.face_processing_status = 'completed'
+    AND NOT EXISTS (
+      SELECT 1
+      FROM person_faces pf
+      WHERE pf.face_id = df.id
+    )
+  ORDER BY mf.uploaded_at ASC, df.face_number ASC
+  `,
     [userId],
   );
 
@@ -340,25 +283,35 @@ export const findFaceGroups = async (
 
   const pairsResult = await pool.query(
     `
- SELECT
-  face_a.id AS face_id_1,
-  face_b.id AS face_id_2,
-  1 - (face_a.embedding <=> face_b.embedding) AS similarity
-FROM detected_faces face_a
-INNER JOIN media_files media_a
-  ON media_a.id = face_a.media_file_id
-INNER JOIN detected_faces face_b
-  ON face_a.id < face_b.id
-  AND face_a.media_file_id <> face_b.media_file_id
-INNER JOIN media_files media_b
-  ON media_b.id = face_b.media_file_id
-WHERE media_a.user_id = $1
-  AND media_b.user_id = $1
-  AND media_a.face_processing_status = 'completed'
-  AND media_b.face_processing_status = 'completed'
-  AND 1 - (face_a.embedding <=> face_b.embedding) >= $2
-ORDER BY similarity DESC, face_a.id ASC, face_b.id ASC
-    `,
+  SELECT
+    face_a.id AS face_id_1,
+    face_b.id AS face_id_2,
+    1 - (face_a.embedding <=> face_b.embedding) AS similarity
+  FROM detected_faces face_a
+  INNER JOIN media_files media_a
+    ON media_a.id = face_a.media_file_id
+  INNER JOIN detected_faces face_b
+    ON face_a.id < face_b.id
+    AND face_a.media_file_id <> face_b.media_file_id
+  INNER JOIN media_files media_b
+    ON media_b.id = face_b.media_file_id
+  WHERE media_a.user_id = $1
+    AND media_b.user_id = $1
+    AND media_a.face_processing_status = 'completed'
+    AND media_b.face_processing_status = 'completed'
+    AND NOT EXISTS (
+      SELECT 1
+      FROM person_faces pf
+      WHERE pf.face_id = face_a.id
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM person_faces pf
+      WHERE pf.face_id = face_b.id
+    )
+    AND 1 - (face_a.embedding <=> face_b.embedding) >= $2
+  ORDER BY similarity DESC, face_a.id ASC, face_b.id ASC
+  `,
     [userId, minSimilarity],
   );
 
@@ -523,6 +476,7 @@ ORDER BY similarity DESC, face_a.id ASC, face_b.id ASC
         mediaFileId: member.mediaFileId,
         filename: member.filename,
         thumbnailKey: member.thumbnailKey,
+        cropUrl: `/api/v1/faces/${member.faceId}/image`,
         faceNumber: member.faceNumber,
         boundingBox: member.boundingBox,
         detectionConfidence: member.detectionConfidence,
@@ -555,4 +509,25 @@ ORDER BY similarity DESC, face_a.id ASC, face_b.id ASC
     groupCount: candidateGroups.length,
     groups: candidateGroups,
   };
+};
+
+// Persists face crop keys and exposes crop URLs in candidate-group results.
+export const findFaceCropForUser = async (
+  faceId: string,
+  userId: string,
+): Promise<string | null> => {
+  const result = await pool.query(
+    `
+    SELECT df.crop_key
+    FROM detected_faces df
+    INNER JOIN media_files mf
+      ON mf.id = df.media_file_id
+    WHERE df.id = $1
+      AND mf.user_id = $2
+    LIMIT 1
+    `,
+    [faceId, userId],
+  );
+
+  return result.rows[0]?.crop_key ?? null;
 };

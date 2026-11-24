@@ -1,5 +1,6 @@
 import {
   FiUsers,
+  FiUserCheck,
   FiCalendar,
   FiSearch,
   FiFileText,
@@ -16,7 +17,13 @@ export const NAV_ITEMS = [
     icon: FiUsers,
     label: "People Recognition",
     path: REACT_APP_NAV_ROUTES.people_recognition,
-    comingSoon: true,
+    comingSoon: false,
+  },
+  {
+    icon: FiUserCheck,
+    label: "People Directory",
+    path: REACT_APP_NAV_ROUTES.people_directory,
+    comingSoon: false,
   },
   {
     icon: FiCalendar,
@@ -67,6 +74,6 @@ export const STORAGE_ITEMS = [
     icon: FiImage,
     label: "Image Gallery",
     path: REACT_APP_NAV_ROUTES.image_gallery,
-    comingSoon: true,
+    comingSoon: false,
   },
 ] as const;

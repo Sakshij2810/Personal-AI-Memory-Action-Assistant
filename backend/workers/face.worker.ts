@@ -13,13 +13,16 @@ import {
   markFaceProcessingStarted,
   markFaceProcessingFailed,
   saveDetectedFaces,
-  type DetectedFaceInput,
 } from "../services/faces/face.repository.js";
 
 import {
   recoverStuckFaceProcessingJobs,
   recoverUnqueuedFaceProcessingJobs,
 } from "../helpers/face.helper.js";
+import { generateFaceCrops } from "../services/faces/face-crop.service.js";
+import type { DetectedFaceInput } from "../services/faces/types.js";
+
+type DetectedFaceDetection = Omit<DetectedFaceInput, "cropKey">;
 
 interface PythonFace {
   face_number: number;
@@ -42,7 +45,7 @@ interface PythonFaceResponse {
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
-const validatePythonResponse = (data: unknown): DetectedFaceInput[] => {
+const validatePythonResponse = (data: unknown): DetectedFaceDetection[] => {
   if (!data || typeof data !== "object") {
     throw new Error("Invalid response from face service.");
   }
@@ -183,8 +186,29 @@ export const faceWorker = new Worker<ProcessFaceJobData>(
     const responseData: unknown = await response.json();
     const faces = validatePythonResponse(responseData);
 
-    // 9. Persist detected faces transactionally.
-    const saved = await saveDetectedFaces(mediaId, userId, faces);
+    // 9. Generate visual crops from the ORIGINAL photograph.
+    const generatedCrops = await generateFaceCrops(imageBuffer, mediaId, faces);
+
+    const cropsByFaceNumber = new Map(
+      generatedCrops.map((crop) => [crop.faceNumber, crop.cropKey]),
+    );
+
+    // Attach each crop storage key to its detected face.
+    const facesWithCrops = faces.map((face) => {
+      const cropKey = cropsByFaceNumber.get(face.faceNumber);
+
+      if (!cropKey) {
+        throw new Error(`Face crop missing for face ${face.faceNumber}.`);
+      }
+
+      return {
+        ...face,
+        cropKey,
+      };
+    });
+
+    // 10. Persist detected faces transactionally.
+    const saved = await saveDetectedFaces(mediaId, userId, facesWithCrops);
 
     if (!saved) {
       console.log(
@@ -195,13 +219,13 @@ export const faceWorker = new Worker<ProcessFaceJobData>(
     }
 
     console.log(
-      `Face processing completed: ${mediaId}. Detected ${faces.length} faces.`,
+      `Face processing completed: ${mediaId}. Detected ${faces.length} faces and generated ${generatedCrops.length} crops.`,
     );
-
     return {
       success: true,
       mediaId,
       totalFaces: faces.length,
+      totalCrops: generatedCrops.length,
     };
   },
 

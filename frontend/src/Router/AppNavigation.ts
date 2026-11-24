@@ -1,3 +1,5 @@
+// frontend/src/Router/AppNavigation.ts
+
 export const REACT_APP_NAV_ROUTES = {
   dashboard: "/dashboard",
 
@@ -9,6 +11,7 @@ export const REACT_APP_NAV_ROUTES = {
 
   // Memory Agents
   people_recognition: "/people-recognition",
+  people_directory: "/people",
   event_organizer: "/event-organizer",
   memory_search: "/memory-search",
   document_intelligence: "/document-intelligence",
