@@ -1235,20 +1235,20 @@ Phase Milestone Status
 
 ---
 
-1 Project Foundation & Media Upload Completed
-2 Background Media Processing Foundation Not started
-3 Image Understanding & Basic Visual Analysis Not started
-4 Face Detection & Face Embeddings Not started
-5 People Grouping & User Identity Confirmation Not started
-6 Event & Ceremony Recognition Not started
-7 Personal Memory & Relationship Data Model Not started
-8 Search by Person, Event & Metadata Not started
-9 AI Memory Search & Chat Assistant Not started
-10 Albums, Collections & Safe Actions Not started
-11 Screenshots, PDFs & Document Intelligence Not started
-12 Video & Audio Memory Not started
-13 Voice Assistant Not started
-14 Security, Reliability & Deployment Not started
+1. Project Foundation & Media Upload Completed
+2. Background Media Processing Foundation Not started
+3. Image Understanding & Basic Visual Analysis Not started
+4. Face Detection & Face Embeddings Not started
+5. People Grouping & User Identity Confirmation Not started
+6. Event & Ceremony Recognition Not started
+7. Personal Memory & Relationship Data Model Not started
+8. Search by Person, Event & Metadata Not started
+9. AI Memory Search & Chat Assistant Not started
+10. Albums, Collections & Safe Actions Not started
+11. Screenshots, PDFs & Document Intelligence Not started
+12. Video & Audio Memory Not started
+13. Voice Assistant Not started
+14. Security, Reliability & Deployment Not started
 
 ## Recommended next step
 

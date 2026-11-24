@@ -1,5 +1,3 @@
-// backend/tests/media-upload.test.ts
-
 import {
   beforeAll,
   afterAll,
@@ -28,6 +26,7 @@ import imageAnalysisQueue from "../queues/analysis.queue.js";
 import { mediaStorageDir, mediaThumbnailDir } from "../config/media-storage.js";
 
 import { env } from "../lib/env.js";
+import { faceQueue } from "../queues/face.queue.js";
 
 describe("Media upload integration tests", () => {
   let userId: string;
@@ -50,7 +49,10 @@ describe("Media upload integration tests", () => {
   // ==================================================
 
   const removeJobIfNotActive = async (
-    queue: typeof mediaProcessingQueue | typeof imageAnalysisQueue,
+    queue:
+      | typeof mediaProcessingQueue
+      | typeof imageAnalysisQueue
+      | typeof faceQueue,
     jobId: string,
   ) => {
     const job = await queue.getJob(jobId);
@@ -98,6 +100,7 @@ describe("Media upload integration tests", () => {
 
     await mediaProcessingQueue.waitUntilReady();
     await imageAnalysisQueue.waitUntilReady();
+    await faceQueue.waitUntilReady();
 
     await fs.mkdir(mediaStorageDir, { recursive: true });
     await fs.mkdir(mediaThumbnailDir, { recursive: true });
@@ -162,6 +165,9 @@ describe("Media upload integration tests", () => {
       // Remove independent image-analysis job.
       await removeJobIfNotActive(imageAnalysisQueue, `analysis-${media.id}`);
 
+      // Remove independent face-processing job.
+      await removeJobIfNotActive(faceQueue, `face-${media.id}`);
+
       // Remove original image.
       if (media.storage_key) {
         await fs.rm(path.join(mediaStorageDir, media.storage_key), {
@@ -185,6 +191,7 @@ describe("Media upload integration tests", () => {
   afterAll(async () => {
     await mediaProcessingQueue.close();
     await imageAnalysisQueue.close();
+    await faceQueue.close();
 
     await bullmqRedis.quit();
     await redis.quit();
@@ -196,7 +203,7 @@ describe("Media upload integration tests", () => {
   // TEST 1: SINGLE IMAGE UPLOAD
   // ==================================================
 
-  it("uploads an image and independently queues media processing and image analysis", async () => {
+  it("uploads an image and independently queues media processing, image analysis, and face processing", async () => {
     const pngBuffer = await createPng();
 
     const response = await request(app)
@@ -213,6 +220,7 @@ describe("Media upload integration tests", () => {
     expect(response.body.processing).toEqual({
       mediaQueued: true,
       analysisQueued: true,
+      faceQueued: true,
     });
 
     expect(response.body.processingQueued).toBe(true);
@@ -231,14 +239,14 @@ describe("Media upload integration tests", () => {
     // Verify PostgreSQL metadata.
     const dbResult = await pool.query(
       `
-      SELECT
-        id,
-        user_id,
-        storage_key,
-        processing_status
-      FROM media_files
-      WHERE id = $1 AND user_id = $2
-      `,
+        SELECT
+          id,
+          user_id,
+          storage_key,
+          processing_status
+        FROM media_files
+        WHERE id = $1 AND user_id = $2
+        `,
       [uploadedImage.id, userId],
     );
 
@@ -272,13 +280,23 @@ describe("Media upload integration tests", () => {
       mediaId: uploadedImage.id,
       userId,
     });
+
+    // Verify independent face-processing job.
+    const faceJob = await faceQueue.getJob(`face-${uploadedImage.id}`);
+
+    expect(faceJob).toBeDefined();
+
+    expect(faceJob?.data).toMatchObject({
+      mediaId: uploadedImage.id,
+      userId,
+    });
   });
 
   // ==================================================
   // TEST 2: MULTIPLE IMAGE UPLOAD
   // ==================================================
 
-  it("uploads multiple images and queues both jobs for every image", async () => {
+  it("uploads multiple images and queues all three jobs for every image", async () => {
     const image1 = await createPng();
     const image2 = await createPng();
 
@@ -300,8 +318,10 @@ describe("Media upload integration tests", () => {
     expect(response.body.processing).toEqual({
       mediaQueued: true,
       analysisQueued: true,
+      faceQueued: true,
       mediaJobsQueued: 2,
       analysisJobsQueued: 2,
+      faceJobsQueued: 2,
     });
 
     expect(response.body.processingQueued).toBe(true);
@@ -321,10 +341,10 @@ describe("Media upload integration tests", () => {
       // Verify database record.
       const dbResult = await pool.query(
         `
-        SELECT id, processing_status
-        FROM media_files
-        WHERE id = $1 AND user_id = $2
-        `,
+          SELECT id, processing_status
+          FROM media_files
+          WHERE id = $1 AND user_id = $2
+          `,
         [image.id, userId],
       );
 
@@ -350,6 +370,16 @@ describe("Media upload integration tests", () => {
       expect(analysisJob).toBeDefined();
 
       expect(analysisJob?.data).toMatchObject({
+        mediaId: image.id,
+        userId,
+      });
+
+      // Verify face-processing job.
+      const faceJob = await faceQueue.getJob(`face-${image.id}`);
+
+      expect(faceJob).toBeDefined();
+
+      expect(faceJob?.data).toMatchObject({
         mediaId: image.id,
         userId,
       });
@@ -432,7 +462,7 @@ describe("Media upload integration tests", () => {
   // TEST 6: MEDIA QUEUE ENQUEUE FAILURE
   // ==================================================
 
-  it("preserves the upload and queues image analysis when media-processing enqueue fails", async () => {
+  it("preserves the upload and independently queues image analysis and face processing when media-processing enqueue fails", async () => {
     const pngBuffer = await createPng();
 
     // Simulate media-processing queue failure.
@@ -457,6 +487,7 @@ describe("Media upload integration tests", () => {
     expect(response.body.processing).toEqual({
       mediaQueued: false,
       analysisQueued: true,
+      faceQueued: true,
     });
 
     expect(response.body.processingQueued).toBe(false);
@@ -473,10 +504,10 @@ describe("Media upload integration tests", () => {
     // Database record must be preserved.
     const dbResult = await pool.query(
       `
-      SELECT id, processing_status
-      FROM media_files
-      WHERE id = $1 AND user_id = $2
-      `,
+        SELECT id, processing_status
+        FROM media_files
+        WHERE id = $1 AND user_id = $2
+        `,
       [uploadedImage.id, userId],
     );
 
@@ -495,6 +526,16 @@ describe("Media upload integration tests", () => {
       userId,
     });
 
+    // Face job must still be queued independently.
+    const faceJob = await faceQueue.getJob(`face-${uploadedImage.id}`);
+
+    expect(faceJob).toBeDefined();
+
+    expect(faceJob?.data).toMatchObject({
+      mediaId: uploadedImage.id,
+      userId,
+    });
+
     // Media job should not exist because enqueue failed.
     const mediaJob = await mediaProcessingQueue.getJob(uploadedImage.id);
 
@@ -505,7 +546,7 @@ describe("Media upload integration tests", () => {
   // TEST 7: ANALYSIS QUEUE ENQUEUE FAILURE
   // ==================================================
 
-  it("preserves the upload and queues media processing when image-analysis enqueue fails", async () => {
+  it("preserves the upload and independently queues media processing and face processing when image-analysis enqueue fails", async () => {
     const pngBuffer = await createPng();
 
     // Simulate image-analysis queue failure.
@@ -530,6 +571,7 @@ describe("Media upload integration tests", () => {
     expect(response.body.processing).toEqual({
       mediaQueued: true,
       analysisQueued: false,
+      faceQueued: true,
     });
 
     expect(response.body.processingQueued).toBe(false);
@@ -546,10 +588,10 @@ describe("Media upload integration tests", () => {
     // Database record must be preserved.
     const dbResult = await pool.query(
       `
-      SELECT id, processing_status
-      FROM media_files
-      WHERE id = $1 AND user_id = $2
-      `,
+        SELECT id, processing_status
+        FROM media_files
+        WHERE id = $1 AND user_id = $2
+        `,
       [uploadedImage.id, userId],
     );
 
@@ -565,6 +607,16 @@ describe("Media upload integration tests", () => {
       mediaId: uploadedImage.id,
       userId,
       storageKey: uploadedImage.storage_key,
+    });
+
+    // Face-processing job must still be queued independently.
+    const faceJob = await faceQueue.getJob(`face-${uploadedImage.id}`);
+
+    expect(faceJob).toBeDefined();
+
+    expect(faceJob?.data).toMatchObject({
+      mediaId: uploadedImage.id,
+      userId,
     });
 
     // Analysis job should not exist because enqueue failed.
